@@ -1,37 +1,16 @@
-import express from "express";
-import path from "path";
-import os from "os";
-import fs from "fs/promises";
-import { requireWorkerAuth } from "./auth.js";
-import { ensureDir, downloadToFile } from "./utils.js";
-import { brandVideo } from "./process/video.js";
-import { brandPdf } from "./process/pdf.js";
-import { brandImage } from "./process/image.js";
 import { postJobUpdate } from "./callback.js";
 
-const app = express();
-app.use(express.json({ limit: "2mb" }));
-
-app.get("/v1/health", (_, r) => r.json({ ok: true }));
-
-app.post("/v1/jobs/start", requireWorkerAuth, async (req, res) => {
-  const { job_id, job_type, inputs, brand, output, callback } = req.body;
-  // Fire and forget - respond immediately
-  processJob(job_id, job_type, inputs, brand, output, callback);
-  res.json({ accepted: true });
-});
-
 async function processJob(job_id, job_type, inputs, brand, output, callback) {
-  const callbackUrl = callback?.url;
+  const callbackUrl = callback.url;
   const internalKey = process.env.BRANDRR_INTERNAL_KEY;
 
-  // Helper to send updates
-  const sendUpdate = async (status, progress, error_message) => {
+  // Helper to send progress updates
+  const sendUpdate = async (status, progress, error_message = null, exports = null) => {
     try {
       await postJobUpdate({
         callbackUrl,
         internalKey,
-        body: { job_id, status, progress, error_message },
+        body: { job_id, status, progress, error_message, exports },
       });
     } catch (e) {
       console.error("Failed to send callback:", e.message);
@@ -39,58 +18,39 @@ async function processJob(job_id, job_type, inputs, brand, output, callback) {
   };
 
   try {
-    await sendUpdate("running", 10);
+    await sendUpdate("running", 10); // Started
 
-    const tmp = path.join(os.tmpdir(), `brandrr-${job_id}`);
-    await ensureDir(tmp);
-
+    // Download inputs
     await sendUpdate("running", 20);
+    for (const input of inputs) {
+      await downloadToFile(input.temp_url, `/tmp/${job_id}/${input.filename}`);
+    }
+    await sendUpdate("running", 30); // Inputs downloaded
 
     // Download logo
-    const logo = path.join(tmp, "logo.png");
-    if (brand?.logo_url_temp) {
-      console.log("Downloading logo from:", brand.logo_url_temp);
-      await downloadToFile(brand.logo_url_temp, logo);
+    if (brand.logo_url_temp) {
+      await downloadToFile(brand.logo_url_temp, `/tmp/${job_id}/logo.png`);
     }
+    await sendUpdate("running", 40); // Logo ready
 
-    await sendUpdate("running", 30);
+    // FFmpeg processing
+    await sendUpdate("running", 50);
+    const outputPath = await runFfmpeg(job_id, inputs, brand, output);
+    await sendUpdate("running", 80); // FFmpeg done
 
-    for (let idx = 0; idx < inputs.length; idx++) {
-      const i = inputs[idx];
-      const inp = path.join(tmp, i.filename);
+    // Upload to user's storage
+    const exportInfo = await uploadToStorage(outputPath, output.destination);
+    await sendUpdate("running", 95);
 
-      console.log("Downloading input from:", i.temp_url);
-      await downloadToFile(i.temp_url, inp);
-
-      await sendUpdate("running", 40 + idx * 10);
-
-      const out = path.join(tmp, `out-${i.filename}`);
-
-      if (job_type === "video_brand") {
-        await brandVideo({ inputPath: inp, logoPath: logo, outputPath: out });
-      } else if (job_type === "pdf_brand") {
-        await brandPdf({ inputPath: inp, logoPath: logo, outputPath: out });
-      } else if (job_type === "image_brand") {
-        await brandImage({ inputPath: inp, logoPath: logo, outputPath: out });
-      }
-
-      await sendUpdate("running", 80);
-    }
-
-    // TODO: Upload to user's storage destination here
-
-    await sendUpdate("succeeded", 100);
-    console.log(`Job ${job_id} completed successfully`);
-
-    // Cleanup
-    await fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
+    // Success!
+    await sendUpdate("succeeded", 100, null, [exportInfo]);
 
   } catch (error) {
     console.error(`Job ${job_id} failed:`, error);
+    // CRITICAL: Always send failure callback
     await sendUpdate("failed", 0, error.message || String(error));
+  } finally {
+    // Cleanup temp files
+    await cleanup(`/tmp/${job_id}`);
   }
 }
-
-app.listen(process.env.PORT || 10000, () => {
-  console.log("Worker listening on port", process.env.PORT || 10000);
-});
