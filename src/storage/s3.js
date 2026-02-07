@@ -1,0 +1,2 @@
+import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
+export async function testS3(d){ const c=new S3Client({endpoint:d.endpoint_url,region:d.region||"auto",credentials:{accessKeyId:d.access_key_id,secretAccessKey:d.secret_access_key},forcePathStyle:true}); await c.send(new HeadBucketCommand({Bucket:d.bucket})); }
