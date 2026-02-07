@@ -1,3 +1,4 @@
+// index.js - Updated with full error handling
 import { postJobUpdate } from "./callback.js";
 
 async function processJob(job_id, job_type, inputs, brand, output, callback) {
