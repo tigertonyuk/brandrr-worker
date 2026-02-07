@@ -1,4 +1,12 @@
-// index.js - Updated with full error handling
+// Line 1 - Catch any startup errors
+console.log('Worker starting...');
+
+try {
+  // ... rest of your code
+} catch (err) {
+  console.error('Startup error:', err);
+  process.exit(1);
+}
 import { postJobUpdate } from "./callback.js";
 
 async function processJob(job_id, job_type, inputs, brand, output, callback) {
