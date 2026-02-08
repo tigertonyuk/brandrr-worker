@@ -11,9 +11,9 @@ import mime from "mime-types";
 import { requireWorkerAuth } from "./auth.js";
 import { probeFile } from "./probe.js";
 import { testS3 } from "./s3.js";
-import { brandImage } from "./image.js";
-import { brandPdf } from "./pdf.js";
-import { brandVideo } from "./video.js";
+import { brandImage } from "./processors/image.js";
+import { brandPdf } from "./processors/pdf.js";
+import { brandVideo } from "./processors/video.js";
 import { downloadToFile, ensureDir } from "./utils.js";
 
 const app = express();
