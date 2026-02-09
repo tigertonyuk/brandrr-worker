@@ -94,9 +94,14 @@ async function processJob(payload) {
       await sendUpdate("running", 10 + Math.round((i / inputs.length) * 10));
     }
 
-    // 2️⃣ Download logo
-    const logoPath = path.join(tmpDir, "logo.png");
-    await downloadToFile(brand.logo_url_temp, logoPath);
+    // 2️⃣ Download logo (only if enabled and URL provided)
+    let logoPath = null;
+    const logoEnabled = brand?.logo_enabled ?? true;
+    const logoUrl = brand?.logo_url_temp;
+    if (logoEnabled && logoUrl) {
+      logoPath = path.join(tmpDir, "logo.png");
+      await downloadToFile(logoUrl, logoPath);
+    }
     await sendUpdate("running", 25);
 
     // 3️⃣ Process each input
@@ -111,7 +116,21 @@ async function processJob(payload) {
       } else if (job_type === "pdf_brand") {
         await brandPdf({ inputPath: inp.localPath, logoPath, outputPath });
       } else if (job_type === "video_brand") {
-        await brandVideo({ inputPath: inp.localPath, logoPath, outputPath });
+        await brandVideo({
+          inputPath: inp.localPath,
+          logoPath,
+          outputPath,
+          logoSize: brand?.logo_size || "medium",
+          logoPosition: brand?.logo_position || "bottom-right",
+          logoTargetHeightPx: brand?.logo_target_height_px,
+          logoEnabled,
+          brandName: brand?.name,
+          primaryColor: brand?.primary_color,
+          tagline: brand?.tagline,
+          contact: brand?.contact,
+          social: brand?.social,
+          elements: brand?.elements,
+        });
       } else {
         throw new Error(`Unknown job_type: ${job_type}`);
       }
