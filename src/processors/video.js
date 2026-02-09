@@ -105,14 +105,14 @@ export async function brandVideo({
     lastLabel = "[v_hdr]";
   }
 
-  // Footer: 32px bar, fixed y offsets (no text_h variable)
+  // Footer: 32px bar, centered text, fixed y offsets
   if (hasFooter) {
     const escapedFooter = escapeDrawText(footerText);
     filters.push(`${lastLabel}drawbox=x=0:y=ih-32:w=iw:h=32:color=${bgColor}@0.7:t=fill[v_ftr_bg]`);
     lastLabel = "[v_ftr_bg]";
     const fontSize = footerText.length > 100 ? 10 : footerText.length > 60 ? 12 : 14;
     const yOffset = Math.round((32 - fontSize) / 2);
-    filters.push(`${lastLabel}drawtext=text='${escapedFooter}':fontsize=${fontSize}:fontcolor=${fontColor}:x=20:y=H-${32 - yOffset}:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf[v_ftr]`);
+    filters.push(`${lastLabel}drawtext=text='${escapedFooter}':fontsize=${fontSize}:fontcolor=${fontColor}:x=(W-tw)/2:y=H-${32 - yOffset}:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf[v_ftr]`);
     lastLabel = "[v_ftr]";
   }
 
