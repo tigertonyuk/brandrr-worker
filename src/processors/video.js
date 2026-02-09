@@ -111,9 +111,8 @@ export async function brandVideo({
     filters.push(`${lastLabel}drawbox=x=0:y=ih-32:w=iw:h=32:color=${bgColor}@0.7:t=fill[v_ftr_bg]`);
     lastLabel = "[v_ftr_bg]";
     const fontSize = footerText.length > 100 ? 10 : footerText.length > 60 ? 12 : 14;
-    // Approximate vertical centering: (32 - fontSize) / 2 ≈ offset from bottom
     const yOffset = Math.round((32 - fontSize) / 2);
-    filters.push(`${lastLabel}drawtext=text='${escapedFooter}':fontsize=${fontSize}:fontcolor=${fontColor}:x=20:y=ih-${32 - yOffset}:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf[v_ftr]`);
+    filters.push(`${lastLabel}drawtext=text='${escapedFooter}':fontsize=${fontSize}:fontcolor=${fontColor}:x=20:y=H-${32 - yOffset}:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf[v_ftr]`);
     lastLabel = "[v_ftr]";
   }
 
