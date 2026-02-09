@@ -123,19 +123,21 @@ export async function brandVideo({
 
   if (hasHeader) {
     const headerHeight = 40;
+    const halfHeader = headerHeight / 2;
     const escapedName = escapeDrawText(brandName);
     filters.push(
       `${lastLabel}drawbox=x=0:y=0:w=iw:h=${headerHeight}:color=${bgColor}@0.7:t=fill[v_hdr_bg]`
     );
     lastLabel = "[v_hdr_bg]";
     filters.push(
-      `${lastLabel}drawtext=text='${escapedName}':fontsize=18:fontcolor=${fontColor}:x=20:y=(${headerHeight}-text_h)/2:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf[v_hdr]`
+      `${lastLabel}drawtext=text='${escapedName}':fontsize=18:fontcolor=${fontColor}:x=20:y=${halfHeader}-text_h/2:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf[v_hdr]`
     );
     lastLabel = "[v_hdr]";
   }
 
   if (hasFooter) {
     const footerHeight = 32;
+    const halfFooter = footerHeight / 2;
     const escapedFooter = escapeDrawText(footerText);
     filters.push(
       `${lastLabel}drawbox=x=0:y=ih-${footerHeight}:w=iw:h=${footerHeight}:color=${bgColor}@0.7:t=fill[v_ftr_bg]`
@@ -143,7 +145,7 @@ export async function brandVideo({
     lastLabel = "[v_ftr_bg]";
     const fontSize = footerText.length > 100 ? 10 : footerText.length > 60 ? 12 : 14;
     filters.push(
-      `${lastLabel}drawtext=text='${escapedFooter}':fontsize=${fontSize}:fontcolor=${fontColor}:x=20:y=ih-${footerHeight}+(${footerHeight}-text_h)/2:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf[v_ftr]`
+      `${lastLabel}drawtext=text='${escapedFooter}':fontsize=${fontSize}:fontcolor=${fontColor}:x=20:y=ih-${footerHeight}+${halfFooter}-text_h/2:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf[v_ftr]`
     );
     lastLabel = "[v_ftr]";
   }
