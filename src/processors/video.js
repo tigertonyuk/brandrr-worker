@@ -42,10 +42,13 @@ function hexToFFmpegColor(hex) {
 function escapeDrawText(text) {
   if (!text) return "";
   return text
-    .replace(/\\/g, "\\\\\\\\")
-    .replace(/'/g, "'\\\\\\''")
-    .replace(/:/g, "\\\\:")
-    .replace(/%/g, "%%");
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "'\\''")
+    .replace(/:/g, "\\:")
+    .replace(/%/g, "%%")
+    .replace(/\[/g, "\\[")
+    .replace(/\]/g, "\\]")
+    .replace(/;/g, "\\;");
 }
 
 function extractHandle(url) {
