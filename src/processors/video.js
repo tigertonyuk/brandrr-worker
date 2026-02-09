@@ -1,4 +1,4 @@
-import { run } from "./utils.js";
+import { run } from "../utils.js";
 
 /**
  * Logo size to pixel scale factor mapping
@@ -40,13 +40,6 @@ function getOverlayPosition(position, padding = 20) {
 
 /**
  * Brand a video with a logo overlay
- * @param {Object} options - Branding options
- * @param {string} options.inputPath - Path to input video
- * @param {string} options.logoPath - Path to logo image
- * @param {string} options.outputPath - Path for output video
- * @param {string} [options.logoSize="medium"] - Logo size: small, medium, large, xlarge
- * @param {string} [options.logoPosition="bottom-right"] - Logo position
- * @param {number} [options.logoOpacity=0.9] - Logo opacity (0-1)
  */
 export async function brandVideo({
   inputPath,
@@ -59,10 +52,6 @@ export async function brandVideo({
   const targetHeight = LOGO_SIZE_MAP[logoSize] || LOGO_SIZE_MAP.medium;
   const overlayPos = getOverlayPosition(logoPosition);
   
-  // Build FFmpeg filter complex:
-  // 1. Scale logo to target height while preserving aspect ratio
-  // 2. Apply opacity using colorchannelmixer
-  // 3. Overlay on video at specified position
   const filterComplex = [
     `[1:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo]`,
     `[0:v][logo]overlay=${overlayPos}`,
