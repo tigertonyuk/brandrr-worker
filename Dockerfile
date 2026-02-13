@@ -1,6 +1,6 @@
 FROM node:20-bullseye
 
-RUN apt-get update && apt-get install -y ffmpeg poppler-utils ghostscript fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ffmpeg poppler-utils ghostscript fonts-dejavu-core librsvg2-bin && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
