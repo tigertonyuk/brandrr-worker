@@ -4,7 +4,6 @@ import path from "path";
 import os from "os";
 import fs from "fs/promises";
 import mime from "mime-types";
-
 import { requireWorkerAuth } from "./auth.js";
 import { probeFile } from "./probe.js";
 import { testS3 } from "./s3.js";
@@ -54,6 +53,7 @@ app.post("/v1/jobs/start", requireWorkerAuth, (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Job processor
 // ─────────────────────────────────────────────────────────────────────────────
+
 async function processJob(payload) {
   const { job_id, job_type, inputs, brand, output, callback } = payload;
   const tmpDir = path.join(os.tmpdir(), `brandrr-${job_id}`);
@@ -100,6 +100,7 @@ async function processJob(payload) {
       logoPath = path.join(tmpDir, "logo.png");
       await downloadToFile(logoUrl, logoPath);
     }
+
     await sendUpdate("running", 25);
 
     // 3️⃣ Process each input
@@ -118,6 +119,7 @@ async function processJob(payload) {
           inputPath: inp.localPath,
           logoPath,
           outputPath,
+          jobDir: tmpDir,
           logoSize: brand?.logo_size || "medium",
           logoPosition: brand?.logo_position || "bottom-right",
           logoTargetHeightPx: brand?.logo_target_height_px,
@@ -128,6 +130,9 @@ async function processJob(payload) {
           contact: brand?.contact,
           social: brand?.social,
           elements: brand?.elements,
+          fontFamily: brand?.fontFamily,
+          stickers: brand?.stickers,
+          stickerMeta: brand?.stickerMeta,
         });
       } else {
         throw new Error(`Unknown job_type: ${job_type}`);
@@ -196,6 +201,7 @@ async function processJob(payload) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Start server
 // ─────────────────────────────────────────────────────────────────────────────
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Brandrr worker listening on port ${PORT}`);
