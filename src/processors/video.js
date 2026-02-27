@@ -15,21 +15,23 @@ const DEJAVU_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
 const DEJAVU_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
 
 const FONT_MAP = {
+  // System fonts → visually similar Google Fonts installed on the worker
   default: DEJAVU_REGULAR,
   arial: DEJAVU_REGULAR,
   helvetica: DEJAVU_REGULAR,
-  georgia: DEJAVU_REGULAR,
-  "times-new-roman": DEJAVU_REGULAR,
+  georgia: `${GOOGLE_FONT_DIR}/librebaskerville/LibreBaskerville-Regular.ttf`,
+  "times-new-roman": `${GOOGLE_FONT_DIR}/librebaskerville/LibreBaskerville-Regular.ttf`,
   "courier-new": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-  verdana: DEJAVU_REGULAR,
-  "trebuchet-ms": DEJAVU_REGULAR,
-  impact: DEJAVU_BOLD,
-  "comic-sans-ms": DEJAVU_REGULAR,
-  palatino: DEJAVU_REGULAR,
-  garamond: DEJAVU_REGULAR,
-  bookman: DEJAVU_REGULAR,
-  "avant-garde": DEJAVU_REGULAR,
+  verdana: `${GOOGLE_FONT_DIR}/nunito/Nunito-Regular.ttf`,
+  "trebuchet-ms": `${GOOGLE_FONT_DIR}/firasans/FiraSans-Regular.ttf`,
+  impact: `${GOOGLE_FONT_DIR}/anton/Anton-Regular.ttf`,
+  "comic-sans-ms": `${GOOGLE_FONT_DIR}/architectsdaughter/ArchitectsDaughter-Regular.ttf`,
+  palatino: `${GOOGLE_FONT_DIR}/cormorantgaramond/CormorantGaramond-Regular.ttf`,
+  garamond: `${GOOGLE_FONT_DIR}/cormorantgaramond/CormorantGaramond-Regular.ttf`,
+  bookman: `${GOOGLE_FONT_DIR}/librebaskerville/LibreBaskerville-Regular.ttf`,
+  "avant-garde": `${GOOGLE_FONT_DIR}/josefinsans/JosefinSans-Regular.ttf`,
 
+  // Google Fonts — direct paths
   roboto: `${GOOGLE_FONT_DIR}/roboto/Roboto-Regular.ttf`,
   "open-sans": `${GOOGLE_FONT_DIR}/opensans/OpenSans-Regular.ttf`,
   montserrat: `${GOOGLE_FONT_DIR}/montserrat/Montserrat-Regular.ttf`,
@@ -64,21 +66,23 @@ const FONT_MAP = {
 };
 
 const FONT_BOLD_MAP = {
+  // System fonts → visually similar Google Font bold variants
   default: DEJAVU_BOLD,
   arial: DEJAVU_BOLD,
   helvetica: DEJAVU_BOLD,
-  georgia: DEJAVU_BOLD,
-  "times-new-roman": DEJAVU_BOLD,
+  georgia: `${GOOGLE_FONT_DIR}/librebaskerville/LibreBaskerville-Regular.ttf`,
+  "times-new-roman": `${GOOGLE_FONT_DIR}/librebaskerville/LibreBaskerville-Regular.ttf`,
   "courier-new": "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
-  verdana: DEJAVU_BOLD,
-  "trebuchet-ms": DEJAVU_BOLD,
-  impact: DEJAVU_BOLD,
-  "comic-sans-ms": DEJAVU_BOLD,
-  palatino: DEJAVU_BOLD,
-  garamond: DEJAVU_BOLD,
-  bookman: DEJAVU_BOLD,
-  "avant-garde": DEJAVU_BOLD,
+  verdana: `${GOOGLE_FONT_DIR}/nunito/Nunito-Regular.ttf`,
+  "trebuchet-ms": `${GOOGLE_FONT_DIR}/firasans/FiraSans-Regular.ttf`,
+  impact: `${GOOGLE_FONT_DIR}/anton/Anton-Regular.ttf`,
+  "comic-sans-ms": `${GOOGLE_FONT_DIR}/architectsdaughter/ArchitectsDaughter-Regular.ttf`,
+  palatino: `${GOOGLE_FONT_DIR}/cormorantgaramond/CormorantGaramond-Regular.ttf`,
+  garamond: `${GOOGLE_FONT_DIR}/cormorantgaramond/CormorantGaramond-Regular.ttf`,
+  bookman: `${GOOGLE_FONT_DIR}/librebaskerville/LibreBaskerville-Regular.ttf`,
+  "avant-garde": `${GOOGLE_FONT_DIR}/josefinsans/JosefinSans-Regular.ttf`,
 
+  // Google Fonts — bold variants
   roboto: `${GOOGLE_FONT_DIR}/roboto/Roboto-Bold.ttf`,
   "open-sans": `${GOOGLE_FONT_DIR}/opensans/OpenSans-Bold.ttf`,
   montserrat: `${GOOGLE_FONT_DIR}/montserrat/Montserrat-Bold.ttf`,
@@ -86,7 +90,6 @@ const FONT_BOLD_MAP = {
   oswald: `${GOOGLE_FONT_DIR}/oswald/Oswald-Bold.ttf`,
   raleway: `${GOOGLE_FONT_DIR}/raleway/Raleway-Bold.ttf`,
   "playfair-display": `${GOOGLE_FONT_DIR}/playfairdisplay/PlayfairDisplay-Bold.ttf`,
-  // For fonts without separate bold files, use the regular (variable) file which contains bold weights
   "roboto-slab": `${GOOGLE_FONT_DIR}/robotoslab/RobotoSlab-Regular.ttf`,
   poppins: `${GOOGLE_FONT_DIR}/poppins/Poppins-Regular.ttf`,
   nunito: `${GOOGLE_FONT_DIR}/nunito/Nunito-Regular.ttf`,
