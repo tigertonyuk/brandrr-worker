@@ -3,9 +3,6 @@ import fetch from "node-fetch";
 import path from "path";
 import os from "os";
 import fs from "fs/promises";
-import fsSync from "fs";
-import { Upload } from "@aws-sdk/lib-storage";
-import { S3Client } from "@aws-sdk/client-s3";
 import mime from "mime-types";
 
 import { requireWorkerAuth } from "./auth.js";
@@ -15,6 +12,7 @@ import { brandImage } from "./processors/image.js";
 import { brandPdf } from "./processors/pdf.js";
 import { brandVideo } from "./processors/video.js";
 import { downloadToFile, ensureDir } from "./utils.js";
+import { uploadOutput } from "./upload.js";
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
@@ -144,46 +142,36 @@ async function processJob(payload) {
 
     await sendUpdate("running", 75);
 
-    // 4️⃣ Upload to BYO storage
+    // 4️⃣ Upload to BYO storage (unified — supports S3, R2, GDrive, etc.)
     const dest = output.destination;
-    const s3 = new S3Client({
-      endpoint: dest.endpoint_url,
-      region: dest.region || "auto",
-      credentials: {
-        accessKeyId: dest.access_key_id,
-        secretAccessKey: dest.secret_access_key,
-      },
-      forcePathStyle: true,
-    });
-
     const exports = [];
+
     for (let i = 0; i < outputFiles.length; i++) {
       const outFile = outputFiles[i];
-      const key = dest.base_path
-        ? `${dest.base_path}/${job_id}/${outFile.filename}`
-        : `${job_id}/${outFile.filename}`;
-
       const fileStat = await fs.stat(outFile.localPath);
       const mimeType =
         mime.lookup(outFile.filename) || "application/octet-stream";
 
-      const upload = new Upload({
-        client: s3,
-        params: {
-          Bucket: dest.bucket,
-          Key: key,
-          Body: fsSync.createReadStream(outFile.localPath),
-          ContentType: mimeType,
-        },
-      });
-      await upload.done();
+      // Build the filename with job_id prefix
+      const uploadFilename = dest.base_path
+        ? `${job_id}/${outFile.filename}`
+        : `${job_id}/${outFile.filename}`;
+
+      // Use unified upload (routes to S3 or Google Drive automatically)
+      const { storagePath, signedUrl } = await uploadOutput(
+        dest,
+        outFile.localPath,
+        uploadFilename,
+        mimeType
+      );
 
       exports.push({
         type: job_type.replace("_brand", ""),
         filename: outFile.filename,
-        storage_path: key,
+        storage_path: storagePath,
         mime_type: mimeType,
         size_bytes: fileStat.size,
+        signed_url: signedUrl,
       });
 
       await sendUpdate(
