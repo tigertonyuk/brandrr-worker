@@ -113,7 +113,7 @@ const GRADIENT_MAP = {
   "bg-gradient-to-r from-cyan-600 to-teal-500":         ["#0891b2","#14b8a6"],
 };
 
-// Inline sticker catalog (must match browser stickerCatalog.ts)
+// Inline sticker catalog (fallback if stickerMeta not provided)
 const STICKER_CATALOG = [
   { id:"best-seller",        label:"Best Seller",        emoji:"🏆", bgColor:"bg-gradient-to-r from-pink-500 to-purple-500",    textColor:"text-white" },
   { id:"new-arrival",        label:"New Arrival",        emoji:"✨", bgColor:"bg-gradient-to-r from-blue-500 to-cyan-500",      textColor:"text-white" },
@@ -158,14 +158,28 @@ function resolveGradientColors(bgColor) {
 
 /**
  * Render sticker badges as PNG files using SVG → rsvg-convert.
+ * @param {string[]} stickerIds - Array of sticker IDs to render
+ * @param {string} tmpDir - Temporary directory for output files
+ * @param {number} scale - Scale multiplier (default 1)
+ * @param {Array} stickerMeta - Optional metadata from frontend payload
+ *   Each entry: { id, label, bgColor, textColor, emoji }
+ *   If provided, used instead of local STICKER_CATALOG for matching IDs.
  * Returns array of { id, filePath, width, height }.
  */
-export async function renderStickers(stickerIds, tmpDir, scale = 1) {
+export async function renderStickers(stickerIds, tmpDir, scale = 1, stickerMeta = null) {
   if (!stickerIds || stickerIds.length === 0) return [];
 
   const results = [];
+
   for (const id of stickerIds) {
-    const sticker = STICKER_CATALOG.find(s => s.id === id);
+    // Prefer stickerMeta from payload, fall back to local catalog
+    let sticker = null;
+    if (stickerMeta && Array.isArray(stickerMeta)) {
+      sticker = stickerMeta.find(s => s.id === id);
+    }
+    if (!sticker) {
+      sticker = STICKER_CATALOG.find(s => s.id === id);
+    }
     if (!sticker) { console.warn(`[utils] Sticker not found: ${id}`); continue; }
 
     const padding = Math.round(12 * scale);
@@ -181,14 +195,16 @@ export async function renderStickers(stickerIds, tmpDir, scale = 1) {
 
     const [c1, c2] = resolveGradientColors(sticker.bgColor);
     const textColor = sticker.textColor === "text-white" ? "#ffffff" : "#000000";
-    const textY = height / 2 + fontSize * 0.35;
 
+    const textY = height / 2 + fontSize * 0.35;
     let textContent = "";
     let textX = padding;
+
     if (sticker.emoji) {
       textContent += `<text x="${textX}" y="${textY}" font-size="${emojiSize}" fill="${textColor}" font-family="sans-serif">${sticker.emoji}</text>`;
       textX += emojiWidth;
     }
+
     textContent += `<text x="${textX}" y="${textY}" font-size="${fontSize}" font-weight="bold" fill="${textColor}" font-family="DejaVu Sans, sans-serif">${escapeXml(sticker.label)}</text>`;
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
@@ -201,6 +217,7 @@ export async function renderStickers(stickerIds, tmpDir, scale = 1) {
 
     const svgPath = path.join(tmpDir, `sticker-${id}.svg`);
     const pngPath = path.join(tmpDir, `sticker-${id}.png`);
+
     await fs.writeFile(svgPath, svg);
 
     try {
@@ -210,6 +227,7 @@ export async function renderStickers(stickerIds, tmpDir, scale = 1) {
       console.warn(`[utils] Failed to render sticker ${id}:`, e.message);
     }
   }
+
   return results;
 }
 
