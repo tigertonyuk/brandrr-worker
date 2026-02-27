@@ -158,6 +158,10 @@ function resolveGradientColors(bgColor) {
 
 /**
  * Render sticker badges as PNG files using SVG → rsvg-convert.
+ * Emoji is intentionally omitted because rsvg-convert cannot render
+ * Unicode emoji glyphs — they appear as code-point digits instead.
+ * The label text with the gradient badge provides sufficient branding.
+ *
  * @param {string[]} stickerIds - Array of sticker IDs to render
  * @param {string} tmpDir - Temporary directory for output files
  * @param {number} scale - Scale multiplier (default 1)
@@ -184,28 +188,21 @@ export async function renderStickers(stickerIds, tmpDir, scale = 1, stickerMeta 
 
     const padding = Math.round(12 * scale);
     const fontSize = Math.round(14 * scale);
-    const emojiSize = Math.round(16 * scale);
     const borderRadius = Math.round(8 * scale);
 
     // Approximate text width (0.6em per char is a rough heuristic)
     const textWidth = Math.round(sticker.label.length * fontSize * 0.6);
-    const emojiWidth = sticker.emoji ? emojiSize + Math.round(4 * scale) : 0;
-    const width = textWidth + emojiWidth + padding * 2;
+    // Emoji omitted — rsvg-convert renders them as broken code-point digits
+    const width = textWidth + padding * 2;
     const height = fontSize + padding * 2;
 
     const [c1, c2] = resolveGradientColors(sticker.bgColor);
     const textColor = sticker.textColor === "text-white" ? "#ffffff" : "#000000";
 
     const textY = height / 2 + fontSize * 0.35;
-    let textContent = "";
-    let textX = padding;
+    const textX = padding;
 
-    if (sticker.emoji) {
-      textContent += `<text x="${textX}" y="${textY}" font-size="${emojiSize}" fill="${textColor}" font-family="sans-serif">${sticker.emoji}</text>`;
-      textX += emojiWidth;
-    }
-
-    textContent += `<text x="${textX}" y="${textY}" font-size="${fontSize}" font-weight="bold" fill="${textColor}" font-family="DejaVu Sans, sans-serif">${escapeXml(sticker.label)}</text>`;
+    const textContent = `<text x="${textX}" y="${textY}" font-size="${fontSize}" font-weight="bold" fill="${textColor}" font-family="DejaVu Sans, sans-serif">${escapeXml(sticker.label)}</text>`;
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
