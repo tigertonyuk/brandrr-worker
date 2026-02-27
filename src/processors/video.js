@@ -128,7 +128,7 @@ export async function brandVideo({
   logoSize = "medium", logoPosition = "bottom-right",
   logoOpacity = 0.9, logoTargetHeightPx, logoEnabled = true,
   brandName, primaryColor, tagline, contact, social, elements,
-  fontFamily, stickers,
+  fontFamily, stickers, stickerMeta,
 }) {
   const hasLogo = logoEnabled && logoPath;
   const targetHeight = logoTargetHeightPx || LOGO_SIZE_MAP[logoSize] || LOGO_SIZE_MAP.medium;
@@ -145,8 +145,8 @@ export async function brandVideo({
   const boldFontPath = resolveFontPath(fontFamily); // same file (no bold variant)
   console.log(`[video.js] Font: ${fontFamily || "default"} → ${fontPath}`);
 
-  // Render sticker badges as PNGs
-  const stickerAssets = await renderStickers(stickers, tempDir, 2);
+  // Render sticker badges as PNGs (pass stickerMeta for labels, colors, emojis)
+  const stickerAssets = await renderStickers(stickers, tempDir, 2, stickerMeta);
   console.log(`[video.js] Stickers rendered: ${stickerAssets.length}`);
 
   // Prepare footer icon PNGs
