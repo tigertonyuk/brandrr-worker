@@ -10,11 +10,6 @@ const LOGO_SIZE_MAP = {
 };
 
 // ─── Font resolution ───────────────────────────────────────────────────────────
-// Maps font slugs to .ttf paths installed in the Docker image.
-// The Dockerfile installs these into /usr/share/fonts/google/<family>/
-// using GitHub raw URLs with predictable filenames.
-// Falls back to DejaVu (always available on Debian/Ubuntu).
-
 const GOOGLE_FONT_DIR = "/usr/share/fonts/google";
 const DEJAVU_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
 const DEJAVU_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
@@ -42,6 +37,30 @@ const FONT_MAP = {
   oswald: `${GOOGLE_FONT_DIR}/oswald/Oswald-Regular.ttf`,
   raleway: `${GOOGLE_FONT_DIR}/raleway/Raleway-Regular.ttf`,
   "playfair-display": `${GOOGLE_FONT_DIR}/playfairdisplay/PlayfairDisplay-Regular.ttf`,
+  "roboto-slab": `${GOOGLE_FONT_DIR}/robotoslab/RobotoSlab-Regular.ttf`,
+  poppins: `${GOOGLE_FONT_DIR}/poppins/Poppins-Regular.ttf`,
+  nunito: `${GOOGLE_FONT_DIR}/nunito/Nunito-Regular.ttf`,
+  "crimson-text": `${GOOGLE_FONT_DIR}/crimsontext/CrimsonText-Regular.ttf`,
+  bitter: `${GOOGLE_FONT_DIR}/bitter/Bitter-Regular.ttf`,
+  "dancing-script": `${GOOGLE_FONT_DIR}/dancingscript/DancingScript-Regular.ttf`,
+  "great-vibes": `${GOOGLE_FONT_DIR}/greatvibes/GreatVibes-Regular.ttf`,
+  pacifico: `${GOOGLE_FONT_DIR}/pacifico/Pacifico-Regular.ttf`,
+  caveat: `${GOOGLE_FONT_DIR}/caveat/Caveat-Regular.ttf`,
+  "bebas-neue": `${GOOGLE_FONT_DIR}/bebasneue/BebasNeue-Regular.ttf`,
+  anton: `${GOOGLE_FONT_DIR}/anton/Anton-Regular.ttf`,
+  righteous: `${GOOGLE_FONT_DIR}/righteous/Righteous-Regular.ttf`,
+  "permanent-marker": `${GOOGLE_FONT_DIR}/permanentmarker/PermanentMarker-Regular.ttf`,
+  bangers: `${GOOGLE_FONT_DIR}/bangers/Bangers-Regular.ttf`,
+  "space-mono": `${GOOGLE_FONT_DIR}/spacemono/SpaceMono-Regular.ttf`,
+  "source-code-pro": `${GOOGLE_FONT_DIR}/sourcecodepro/SourceCodePro-Regular.ttf`,
+  inconsolata: `${GOOGLE_FONT_DIR}/inconsolata/Inconsolata-Regular.ttf`,
+  "fira-sans": `${GOOGLE_FONT_DIR}/firasans/FiraSans-Regular.ttf`,
+  "josefin-sans": `${GOOGLE_FONT_DIR}/josefinsans/JosefinSans-Regular.ttf`,
+  "cormorant-garamond": `${GOOGLE_FONT_DIR}/cormorantgaramond/CormorantGaramond-Regular.ttf`,
+  "libre-baskerville": `${GOOGLE_FONT_DIR}/librebaskerville/LibreBaskerville-Regular.ttf`,
+  quicksand: `${GOOGLE_FONT_DIR}/quicksand/Quicksand-Regular.ttf`,
+  comfortaa: `${GOOGLE_FONT_DIR}/comfortaa/Comfortaa-Regular.ttf`,
+  "architects-daughter": `${GOOGLE_FONT_DIR}/architectsdaughter/ArchitectsDaughter-Regular.ttf`,
 };
 
 const FONT_BOLD_MAP = {
@@ -67,6 +86,31 @@ const FONT_BOLD_MAP = {
   oswald: `${GOOGLE_FONT_DIR}/oswald/Oswald-Bold.ttf`,
   raleway: `${GOOGLE_FONT_DIR}/raleway/Raleway-Bold.ttf`,
   "playfair-display": `${GOOGLE_FONT_DIR}/playfairdisplay/PlayfairDisplay-Bold.ttf`,
+  // For fonts without separate bold files, use the regular (variable) file which contains bold weights
+  "roboto-slab": `${GOOGLE_FONT_DIR}/robotoslab/RobotoSlab-Regular.ttf`,
+  poppins: `${GOOGLE_FONT_DIR}/poppins/Poppins-Regular.ttf`,
+  nunito: `${GOOGLE_FONT_DIR}/nunito/Nunito-Regular.ttf`,
+  "crimson-text": `${GOOGLE_FONT_DIR}/crimsontext/CrimsonText-Regular.ttf`,
+  bitter: `${GOOGLE_FONT_DIR}/bitter/Bitter-Regular.ttf`,
+  "dancing-script": `${GOOGLE_FONT_DIR}/dancingscript/DancingScript-Regular.ttf`,
+  "great-vibes": `${GOOGLE_FONT_DIR}/greatvibes/GreatVibes-Regular.ttf`,
+  pacifico: `${GOOGLE_FONT_DIR}/pacifico/Pacifico-Regular.ttf`,
+  caveat: `${GOOGLE_FONT_DIR}/caveat/Caveat-Regular.ttf`,
+  "bebas-neue": `${GOOGLE_FONT_DIR}/bebasneue/BebasNeue-Regular.ttf`,
+  anton: `${GOOGLE_FONT_DIR}/anton/Anton-Regular.ttf`,
+  righteous: `${GOOGLE_FONT_DIR}/righteous/Righteous-Regular.ttf`,
+  "permanent-marker": `${GOOGLE_FONT_DIR}/permanentmarker/PermanentMarker-Regular.ttf`,
+  bangers: `${GOOGLE_FONT_DIR}/bangers/Bangers-Regular.ttf`,
+  "space-mono": `${GOOGLE_FONT_DIR}/spacemono/SpaceMono-Regular.ttf`,
+  "source-code-pro": `${GOOGLE_FONT_DIR}/sourcecodepro/SourceCodePro-Regular.ttf`,
+  inconsolata: `${GOOGLE_FONT_DIR}/inconsolata/Inconsolata-Regular.ttf`,
+  "fira-sans": `${GOOGLE_FONT_DIR}/firasans/FiraSans-Regular.ttf`,
+  "josefin-sans": `${GOOGLE_FONT_DIR}/josefinsans/JosefinSans-Regular.ttf`,
+  "cormorant-garamond": `${GOOGLE_FONT_DIR}/cormorantgaramond/CormorantGaramond-Regular.ttf`,
+  "libre-baskerville": `${GOOGLE_FONT_DIR}/librebaskerville/LibreBaskerville-Regular.ttf`,
+  quicksand: `${GOOGLE_FONT_DIR}/quicksand/Quicksand-Regular.ttf`,
+  comfortaa: `${GOOGLE_FONT_DIR}/comfortaa/Comfortaa-Regular.ttf`,
+  "architects-daughter": `${GOOGLE_FONT_DIR}/architectsdaughter/ArchitectsDaughter-Regular.ttf`,
 };
 
 async function resolveFont(slug, bold = false) {
@@ -90,10 +134,6 @@ async function resolveFont(slug, bold = false) {
 }
 
 // ─── Emoji support via Twemoji ─────────────────────────────────────────────────
-// rsvg-convert cannot render Unicode emoji glyphs natively.
-// We download the emoji as a PNG from the Twemoji CDN and embed it
-// as a base64 data URI <image> element inside the SVG.
-
 const TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72";
 
 async function getEmojiDataUri(emoji) {
@@ -170,7 +210,6 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
   const textWidth = label.length * fontSize * 0.6;
   const padding = 24;
 
-  // Try to get emoji as embedded Twemoji PNG data URI
   const emojiDataUri = await getEmojiDataUri(emoji);
   const emojiSize = Math.round(height * 0.55);
   const emojiWidth = emojiDataUri ? emojiSize + 6 : 0;
@@ -231,9 +270,6 @@ const CONTACT_ICON_SVGS = {
   address: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#666"/><path d="M12 5.5c-2.5 0-4.5 2-4.5 4.5 0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5c0-2.5-2-4.5-4.5-4.5z" fill="none" stroke="#fff" stroke-width="1.2"/><circle cx="12" cy="10" r="1.5" fill="#fff"/></svg>`,
 };
 
-/**
- * Convert an SVG string to a PNG file using rsvg-convert, ImageMagick, or raw SVG fallback.
- */
 async function svgToPng(svgContent, outPath, size = 20) {
   const svgPath = outPath.replace(/\.png$/, ".svg");
   await fs.writeFile(svgPath, svgContent, "utf-8");
@@ -256,9 +292,6 @@ async function svgToPng(svgContent, outPath, size = 20) {
   }
 }
 
-/**
- * Prepare icon PNG files for all active contact + social entries.
- */
 async function prepareFooterIcons({ social, contact, jobDir, iconSize = 18 }) {
   const entries = [];
 
@@ -344,15 +377,12 @@ export async function brandVideo({
   const iconSize = 18;
   const iconGap = 4;
 
-  // Resolve font paths (regular + bold)
   const fontPath = await resolveFont(fontFamily, false);
   const boldFontPath = await resolveFont(fontFamily, true);
   console.log(`[video.js] Font: slug=${fontFamily || "default"}, regular=${fontPath}, bold=${boldFontPath}`);
 
-  // Prepare footer icon PNGs
   const footerIcons = await prepareFooterIcons({ social, contact, jobDir: tempDir, iconSize });
 
-  // Render sticker badges as PNGs (with Twemoji emoji support)
   const stickerPngs = [];
   if (stickerMeta && Array.isArray(stickerMeta) && stickerMeta.length > 0) {
     console.log(`[video.js] Rendering ${stickerMeta.length} sticker(s)`);
@@ -384,7 +414,6 @@ export async function brandVideo({
   let lastLabel = "[0:v]";
   let inputIndex = 1;
 
-  // --- Logo overlay ---
   if (hasLogo) {
     inputs.push("-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo]`);
@@ -393,7 +422,6 @@ export async function brandVideo({
     inputIndex++;
   }
 
-  // --- Header: 40px bar with brand name (uses bold font) ---
   if (hasHeader) {
     const escapedName = escapeDrawText(brandName);
     filters.push(`${lastLabel}drawbox=x=0:y=0:w=iw:h=40:color=${bgColor}@0.7:t=fill[v_hdr_bg]`);
@@ -402,7 +430,6 @@ export async function brandVideo({
     lastLabel = "[v_hdr]";
   }
 
-  // --- Sticker overlays (top-right corner, stacked vertically) ---
   if (stickerPngs.length > 0) {
     const stickerPadding = 15;
     const stickerGap = 8;
@@ -421,22 +448,18 @@ export async function brandVideo({
     }
   }
 
-  // --- Footer with inline icons (uses regular font) ---
   if (hasFooterContent) {
     const footerHeight = 32;
 
-    // Draw background bar
     filters.push(`${lastLabel}drawbox=x=0:y=ih-${footerHeight}:w=iw:h=${footerHeight}:color=${bgColor}@0.7:t=fill[v_ftr_bg]`);
     lastLabel = "[v_ftr_bg]";
 
-    // Calculate font size based on total content length
     const totalTextLen = (tagline || "").length +
       footerIcons.reduce((sum, e) => sum + e.label.length + 3, 0);
     const fontSize = totalTextLen > 100 ? 10 : totalTextLen > 60 ? 12 : 14;
     const charWidth = Math.round(fontSize * 0.6);
     const separatorWidth = Math.round(charWidth * 5);
 
-    // Build segments
     const segments = [];
     let totalWidth = 0;
 
@@ -492,7 +515,6 @@ export async function brandVideo({
     }
   }
 
-  // Build and run FFmpeg command
   if (filters.length > 0) {
     const finalLabel = lastLabel.replace("[", "").replace("]", "");
     const filterComplex = filters.join(";");
@@ -505,7 +527,6 @@ export async function brandVideo({
     await fs.copyFile(inputPath, outputPath);
   }
 
-  // Clean up temporary files (icons + stickers)
   for (const icon of footerIcons) {
     await fs.unlink(icon.iconPath).catch(() => {});
   }
