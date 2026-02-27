@@ -35,8 +35,8 @@ RUN mkdir -p /usr/share/fonts/google/roboto \
              /usr/share/fonts/google/quicksand \
              /usr/share/fonts/google/comfortaa \
              /usr/share/fonts/google/architectsdaughter \
-  && curl -fSL "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto%5Bwdth,wght%5D.ttf" -o /usr/share/fonts/google/roboto/Roboto-Regular.ttf || true \
-  && curl -fSL "https://github.com/google/fonts/raw/main/ofl/opensans/OpenSans%5Bwdth,wght%5D.ttf" -o /usr/share/fonts/google/opensans/OpenSans-Regular.ttf || true \
+  && curl -fSL "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto%5Bwdth%2Cwght%5D.ttf" -o /usr/share/fonts/google/roboto/Roboto-Regular.ttf || true \
+  && curl -fSL "https://github.com/google/fonts/raw/main/ofl/opensans/OpenSans%5Bwdth%2Cwght%5D.ttf" -o /usr/share/fonts/google/opensans/OpenSans-Regular.ttf || true \
   && curl -fSL "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat%5Bwght%5D.ttf" -o /usr/share/fonts/google/montserrat/Montserrat-Regular.ttf || true \
   && curl -fSL "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Regular.ttf" -o /usr/share/fonts/google/lato/Lato-Regular.ttf || true \
   && curl -fSL "https://github.com/google/fonts/raw/main/ofl/oswald/Oswald%5Bwght%5D.ttf" -o /usr/share/fonts/google/oswald/Oswald-Regular.ttf || true \
@@ -68,14 +68,15 @@ RUN mkdir -p /usr/share/fonts/google/roboto \
   && curl -fSL "https://github.com/google/fonts/raw/main/ofl/architectsdaughter/ArchitectsDaughter-Regular.ttf" -o /usr/share/fonts/google/architectsdaughter/ArchitectsDaughter-Regular.ttf || true \
   && fc-cache -f -v
 
-# Also download bold variants for fonts that have them
-RUN curl -fSL "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Bold.ttf" -o /usr/share/fonts/google/roboto/Roboto-Bold.ttf 2>/dev/null || true \
-  && curl -fSL "https://github.com/google/fonts/raw/main/ofl/opensans/OpenSans-Bold.ttf" -o /usr/share/fonts/google/opensans/OpenSans-Bold.ttf 2>/dev/null || true \
-  && curl -fSL "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf" -o /usr/share/fonts/google/montserrat/Montserrat-Bold.ttf 2>/dev/null || true \
+# Create Bold variants by copying variable fonts (they contain all weights)
+# and downloading separate Bold files for static fonts (Lato, Poppins, etc.)
+RUN cp /usr/share/fonts/google/roboto/Roboto-Regular.ttf /usr/share/fonts/google/roboto/Roboto-Bold.ttf 2>/dev/null || true \
+  && cp /usr/share/fonts/google/opensans/OpenSans-Regular.ttf /usr/share/fonts/google/opensans/OpenSans-Bold.ttf 2>/dev/null || true \
+  && cp /usr/share/fonts/google/montserrat/Montserrat-Regular.ttf /usr/share/fonts/google/montserrat/Montserrat-Bold.ttf 2>/dev/null || true \
   && curl -fSL "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Bold.ttf" -o /usr/share/fonts/google/lato/Lato-Bold.ttf 2>/dev/null || true \
-  && curl -fSL "https://github.com/google/fonts/raw/main/ofl/oswald/Oswald-Bold.ttf" -o /usr/share/fonts/google/oswald/Oswald-Bold.ttf 2>/dev/null || true \
-  && curl -fSL "https://github.com/google/fonts/raw/main/ofl/raleway/Raleway-Bold.ttf" -o /usr/share/fonts/google/raleway/Raleway-Bold.ttf 2>/dev/null || true \
-  && curl -fSL "https://github.com/google/fonts/raw/main/ofl/playfairdisplay/PlayfairDisplay-Bold.ttf" -o /usr/share/fonts/google/playfairdisplay/PlayfairDisplay-Bold.ttf 2>/dev/null || true \
+  && cp /usr/share/fonts/google/oswald/Oswald-Regular.ttf /usr/share/fonts/google/oswald/Oswald-Bold.ttf 2>/dev/null || true \
+  && cp /usr/share/fonts/google/raleway/Raleway-Regular.ttf /usr/share/fonts/google/raleway/Raleway-Bold.ttf 2>/dev/null || true \
+  && cp /usr/share/fonts/google/playfairdisplay/PlayfairDisplay-Regular.ttf /usr/share/fonts/google/playfairdisplay/PlayfairDisplay-Bold.ttf 2>/dev/null || true \
   && fc-cache -f -v
 
 WORKDIR /app
