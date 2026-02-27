@@ -1,4 +1,4 @@
-import { run } from "../utils.js";
+import { run, resolveFontPath, renderStickers } from "../utils.js";
 import fs from "fs/promises";
 import path from "path";
 
@@ -128,6 +128,7 @@ export async function brandVideo({
   logoSize = "medium", logoPosition = "bottom-right",
   logoOpacity = 0.9, logoTargetHeightPx, logoEnabled = true,
   brandName, primaryColor, tagline, contact, social, elements,
+  fontFamily, stickers,
 }) {
   const hasLogo = logoEnabled && logoPath;
   const targetHeight = logoTargetHeightPx || LOGO_SIZE_MAP[logoSize] || LOGO_SIZE_MAP.medium;
@@ -139,6 +140,15 @@ export async function brandVideo({
   const iconSize = 18;
   const iconGap = 4;
 
+  // Resolve custom font path
+  const fontPath = resolveFontPath(fontFamily);
+  const boldFontPath = resolveFontPath(fontFamily); // same file (no bold variant)
+  console.log(`[video.js] Font: ${fontFamily || "default"} → ${fontPath}`);
+
+  // Render sticker badges as PNGs
+  const stickerAssets = await renderStickers(stickers, tempDir, 2);
+  console.log(`[video.js] Stickers rendered: ${stickerAssets.length}`);
+
   // Prepare footer icon PNGs
   const footerIcons = await prepareFooterIcons({ social, contact, jobDir: tempDir, iconSize });
 
@@ -146,7 +156,7 @@ export async function brandVideo({
   const hasFooterContent = taglinePart || footerIcons.length > 0;
   const hasHeader = !!brandName;
 
-  console.log(`[video.js] Branding: logo=${hasLogo} (${logoSize}/${targetHeight}px), header=${brandName || "none"}, footerIcons=${footerIcons.length}, tagline=${tagline || "none"}`);
+  console.log(`[video.js] Branding: logo=${hasLogo} (${logoSize}/${targetHeight}px), header=${brandName || "none"}, footerIcons=${footerIcons.length}, tagline=${tagline || "none"}, stickers=${stickerAssets.length}`);
 
   const filters = [];
   const inputs = ["-i", inputPath];
@@ -167,8 +177,29 @@ export async function brandVideo({
     const escapedName = escapeDrawText(brandName);
     filters.push(`${lastLabel}drawbox=x=0:y=0:w=iw:h=40:color=${bgColor}@0.7:t=fill[v_hdr_bg]`);
     lastLabel = "[v_hdr_bg]";
-    filters.push(`${lastLabel}drawtext=text='${escapedName}':fontsize=18:fontcolor=${fontColor}:x=20:y=11:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf[v_hdr]`);
+    filters.push(`${lastLabel}drawtext=text='${escapedName}':fontsize=18:fontcolor=${fontColor}:x=20:y=11:fontfile=${boldFontPath}[v_hdr]`);
     lastLabel = "[v_hdr]";
+  }
+
+  // --- Sticker overlays (top-right, below header) ---
+  if (stickerAssets.length > 0) {
+    const stickerPadding = 15;
+    const stickerGap = 5;
+    const stickerYBase = hasHeader ? 40 + stickerPadding : stickerPadding;
+    let stickerXOffset = stickerPadding; // accumulated from right edge
+
+    for (let si = stickerAssets.length - 1; si >= 0; si--) {
+      const sa = stickerAssets[si];
+      inputs.push("-i", sa.filePath);
+      const sLabel = `stk_${si}`;
+      filters.push(`[${inputIndex}:v]format=rgba[${sLabel}]`);
+      const outLabel = `v_stk_${si}`;
+      stickerXOffset += sa.width;
+      filters.push(`${lastLabel}[${sLabel}]overlay=x=W-${stickerXOffset}:y=${stickerYBase}[${outLabel}]`);
+      lastLabel = `[${outLabel}]`;
+      inputIndex++;
+      stickerXOffset += stickerGap;
+    }
   }
 
   // --- Footer with inline icons ---
@@ -229,13 +260,13 @@ export async function brandVideo({
         xOffset += iconSize + iconGap;
       } else if (seg.type === "text") {
         const outLabel = `v_ft_${segIdx}`;
-        filters.push(`${lastLabel}drawtext=text='${seg.text}':fontsize=${fontSize}:fontcolor=${fontColor}:x='${startXExpr}+${xOffset}':y=H-${footerHeight}+${textYOffset}:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf[${outLabel}]`);
+        filters.push(`${lastLabel}drawtext=text='${seg.text}':fontsize=${fontSize}:fontcolor=${fontColor}:x='${startXExpr}+${xOffset}':y=H-${footerHeight}+${textYOffset}:fontfile=${fontPath}[${outLabel}]`);
         lastLabel = `[${outLabel}]`;
         xOffset += seg.width;
       } else if (seg.type === "separator") {
         const outLabel = `v_fs_${segIdx}`;
         const sepText = escapeDrawText("  |  ");
-        filters.push(`${lastLabel}drawtext=text='${sepText}':fontsize=${fontSize}:fontcolor=${fontColor}@0.5:x='${startXExpr}+${xOffset}':y=H-${footerHeight}+${textYOffset}:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf[${outLabel}]`);
+        filters.push(`${lastLabel}drawtext=text='${sepText}':fontsize=${fontSize}:fontcolor=${fontColor}@0.5:x='${startXExpr}+${xOffset}':y=H-${footerHeight}+${textYOffset}:fontfile=${fontPath}[${outLabel}]`);
         lastLabel = `[${outLabel}]`;
         xOffset += seg.width;
       }
@@ -256,8 +287,11 @@ export async function brandVideo({
     await fs.copyFile(inputPath, outputPath);
   }
 
-  // Clean up temporary icon files
+  // Clean up temporary icon and sticker files
   for (const icon of footerIcons) {
     await fs.unlink(icon.iconPath).catch(() => {});
+  }
+  for (const sa of stickerAssets) {
+    await fs.unlink(sa.filePath).catch(() => {});
   }
 }
