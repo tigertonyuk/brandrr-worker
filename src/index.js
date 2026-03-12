@@ -100,7 +100,6 @@ async function processJob(payload) {
       logoPath = path.join(tmpDir, "logo.png");
       await downloadToFile(logoUrl, logoPath);
     }
-
     await sendUpdate("running", 25);
 
     // 3️⃣ Process each input
@@ -133,6 +132,7 @@ async function processJob(payload) {
           fontFamily: brand?.fontFamily,
           stickers: brand?.stickers,
           stickerMeta: brand?.stickerMeta,
+          templateCustomFields: payload.templateCustomFields || payload.template_custom_fields || {},
         });
       } else {
         throw new Error(`Unknown job_type: ${job_type}`);
@@ -158,9 +158,7 @@ async function processJob(payload) {
         mime.lookup(outFile.filename) || "application/octet-stream";
 
       // Build the filename with job_id prefix
-      const uploadFilename = dest.base_path
-        ? `${job_id}/${outFile.filename}`
-        : `${job_id}/${outFile.filename}`;
+      const uploadFilename = `${job_id}/${outFile.filename}`;
 
       // Use unified upload (routes to S3 or Google Drive automatically)
       const { storagePath, signedUrl } = await uploadOutput(
