@@ -363,13 +363,273 @@ function extractHandle(url) {
   }
 }
 
+// ─── Star rating SVG renderer ──────────────────────────────────────────────────
+// Renders N filled-yellow / empty-grey stars as a PNG via SVG + rsvg-convert.
+
+async function renderStarRatingPng({ rating, max = 5, outPath, starSize = 18 }) {
+  const gap = 3;
+  const totalWidth = max * starSize + (max - 1) * gap;
+  const filledColor = "#facc15"; // yellow-400
+  const emptyColor = "#9ca3af";  // gray-400
+
+  let stars = "";
+  for (let i = 0; i < max; i++) {
+    const x = i * (starSize + gap);
+    const color = i < rating ? filledColor : emptyColor;
+    const scale = starSize / 24;
+    stars += `<g transform="translate(${x}, 0) scale(${scale})">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="${color}"/>
+    </g>`;
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${starSize}">${stars}</svg>`;
+  const svgPath = outPath.replace(/\.png$/, ".svg");
+  await fs.writeFile(svgPath, svg, "utf-8");
+
+  try {
+    await run("rsvg-convert", ["-w", String(totalWidth), "-h", String(starSize), "-o", outPath, svgPath]);
+    await fs.unlink(svgPath).catch(() => {});
+    return { path: outPath, width: totalWidth, height: starSize };
+  } catch {
+    try {
+      await run("convert", ["-background", "none", "-resize", `${totalWidth}x${starSize}`, svgPath, outPath]);
+      await fs.unlink(svgPath).catch(() => {});
+      return { path: outPath, width: totalWidth, height: starSize };
+    } catch {
+      console.warn("[video.js] Cannot render star rating PNG");
+      await fs.unlink(svgPath).catch(() => {});
+      return null;
+    }
+  }
+}
+
+// ─── Template custom fields overlay renderer ───────────────────────────────────
+// Appends FFmpeg drawtext / overlay filters for template-specific fields:
+//   • Testimonial Overlay  → reviewerName, reviewerTitle, starRating
+//   • Lower Third / Speaker → speakerName, speakerTitle
+//   • Product Demo Banner  → productName, productPrice
+//   • Event Countdown      → eventName, eventDate, eventLocation
+//   • Hiring / Announcement → announcementText
+
+async function buildTemplateOverlayFilters({
+  templateCustomFields, bgColor, fontColor, fontPath, boldFontPath,
+  tempDir, lastLabel, inputIndex, inputs, filters,
+}) {
+  if (!templateCustomFields || typeof templateCustomFields !== "object") {
+    return { lastLabel, inputIndex, cleanupPaths: [] };
+  }
+
+  const cf = templateCustomFields;
+  const cleanupPaths = [];
+
+  // ── Testimonial Overlay (reviewerName, reviewerTitle, starRating) ──────────
+  const hasTestimonial = cf.reviewerName || cf.reviewerTitle || cf.starRating;
+  if (hasTestimonial) {
+    const barHeight = 70;
+    const barY = `H-${barHeight}-30`;
+
+    filters.push(
+      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.75:t=fill[v_testi_bg]`
+    );
+    lastLabel = "[v_testi_bg]";
+
+    let textY = 0;
+
+    if (cf.reviewerName) {
+      const escaped = escapeDrawText(String(cf.reviewerName));
+      const nameY = `H-${barHeight}-30+12`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=20:fontcolor=${fontColor}:x=20:y=${nameY}:fontfile=${boldFontPath}[v_testi_name]`
+      );
+      lastLabel = "[v_testi_name]";
+      textY = 36;
+    }
+
+    if (cf.reviewerTitle) {
+      const escaped = escapeDrawText(String(cf.reviewerTitle));
+      const titleY = `H-${barHeight}-30+${textY > 0 ? textY : 14}`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}@0.8:x=20:y=${titleY}:fontfile=${fontPath}[v_testi_title]`
+      );
+      lastLabel = "[v_testi_title]";
+      textY = textY > 0 ? textY + 20 : 38;
+    }
+
+    if (cf.starRating && Number(cf.starRating) > 0) {
+      const rating = Math.min(5, Math.max(0, Math.round(Number(cf.starRating))));
+      const starPngPath = path.join(tempDir, "stars_rating.png");
+      const starResult = await renderStarRatingPng({
+        rating,
+        max: 5,
+        outPath: starPngPath,
+        starSize: 16,
+      });
+      if (starResult) {
+        inputs.push("-i", starResult.path);
+        const starLabel = "star_rating";
+        filters.push(`[${inputIndex}:v]format=rgba[${starLabel}]`);
+        const starY = `H-${barHeight}-30+${textY > 0 ? textY : 14}`;
+        filters.push(
+          `${lastLabel}[${starLabel}]overlay=x=20:y=${starY}[v_testi_stars]`
+        );
+        lastLabel = "[v_testi_stars]";
+        inputIndex++;
+        cleanupPaths.push(starResult.path);
+      }
+    }
+
+    console.log(`[video.js] Testimonial overlay: name=${cf.reviewerName || "—"}, title=${cf.reviewerTitle || "—"}, stars=${cf.starRating || "—"}`);
+  }
+
+  // ── Lower Third / Speaker Bar (speakerName, speakerTitle) ─────────────────
+  const hasSpeaker = cf.speakerName || cf.speakerTitle;
+  if (hasSpeaker && !hasTestimonial) {
+    const barHeight = 56;
+    const barY = `H-${barHeight}-25`;
+
+    filters.push(
+      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.75:t=fill[v_spk_bg]`
+    );
+    lastLabel = "[v_spk_bg]";
+
+    if (cf.speakerName) {
+      const escaped = escapeDrawText(String(cf.speakerName));
+      const nameY = `H-${barHeight}-25+10`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=20:y=${nameY}:fontfile=${boldFontPath}[v_spk_name]`
+      );
+      lastLabel = "[v_spk_name]";
+    }
+
+    if (cf.speakerTitle) {
+      const escaped = escapeDrawText(String(cf.speakerTitle));
+      const titleY = `H-${barHeight}-25+32`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.8:x=20:y=${titleY}:fontfile=${fontPath}[v_spk_title]`
+      );
+      lastLabel = "[v_spk_title]";
+    }
+
+    console.log(`[video.js] Speaker overlay: name=${cf.speakerName || "—"}, title=${cf.speakerTitle || "—"}`);
+  }
+
+  // ── Product Demo Banner (productName, productPrice) ───────────────────────
+  const hasProduct = cf.productName || cf.productPrice;
+  if (hasProduct) {
+    const barHeight = 48;
+    filters.push(
+      `${lastLabel}drawbox=x=0:y=0:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_prod_bg]`
+    );
+    lastLabel = "[v_prod_bg]";
+
+    if (cf.productName) {
+      const escaped = escapeDrawText(String(cf.productName));
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=20:y=14:fontfile=${boldFontPath}[v_prod_name]`
+      );
+      lastLabel = "[v_prod_name]";
+    }
+
+    if (cf.productPrice) {
+      const escaped = escapeDrawText(String(cf.productPrice));
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=W-tw-20:y=14:fontfile=${boldFontPath}[v_prod_price]`
+      );
+      lastLabel = "[v_prod_price]";
+    }
+
+    console.log(`[video.js] Product overlay: name=${cf.productName || "—"}, price=${cf.productPrice || "—"}`);
+  }
+
+  // ── Event Countdown Strip (eventName, eventDate, eventLocation) ───────────
+  const hasEvent = cf.eventName || cf.eventDate || cf.eventLocation;
+  if (hasEvent) {
+    const barHeight = 60;
+    const barY = `H-${barHeight}-20`;
+
+    filters.push(
+      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_evt_bg]`
+    );
+    lastLabel = "[v_evt_bg]";
+
+    if (cf.eventName) {
+      const escaped = escapeDrawText(String(cf.eventName));
+      const nameY = `H-${barHeight}-20+10`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=20:y=${nameY}:fontfile=${boldFontPath}[v_evt_name]`
+      );
+      lastLabel = "[v_evt_name]";
+    }
+
+    const line2Parts = [];
+    if (cf.eventDate) line2Parts.push(String(cf.eventDate));
+    if (cf.eventLocation) line2Parts.push(String(cf.eventLocation));
+    if (line2Parts.length > 0) {
+      const escaped = escapeDrawText(line2Parts.join("  •  "));
+      const dateY = `H-${barHeight}-20+34`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.85:x=20:y=${dateY}:fontfile=${fontPath}[v_evt_date]`
+      );
+      lastLabel = "[v_evt_date]";
+    }
+
+    console.log(`[video.js] Event overlay: name=${cf.eventName || "—"}, date=${cf.eventDate || "—"}, location=${cf.eventLocation || "—"}`);
+  }
+
+  // ── Hiring / Announcement Bar (announcementText) ──────────────────────────
+  if (cf.announcementText) {
+    const barHeight = 40;
+    filters.push(
+      `${lastLabel}drawbox=x=0:y=H-${barHeight}:w=iw:h=${barHeight}:color=${bgColor}@0.85:t=fill[v_ann_bg]`
+    );
+    lastLabel = "[v_ann_bg]";
+
+    const escaped = escapeDrawText(String(cf.announcementText));
+    filters.push(
+      `${lastLabel}drawtext=text='${escaped}':fontsize=16:fontcolor=${fontColor}:x=(W-tw)/2:y=H-${barHeight}+12:fontfile=${boldFontPath}[v_ann_text]`
+    );
+    lastLabel = "[v_ann_text]";
+
+    console.log(`[video.js] Announcement overlay: text=${cf.announcementText}`);
+  }
+
+  return { lastLabel, inputIndex, cleanupPaths };
+}
+
 export async function brandVideo({
   inputPath, logoPath, outputPath, jobDir,
   logoSize = "medium", logoPosition = "bottom-right",
   logoOpacity = 0.9, logoTargetHeightPx, logoEnabled = true,
   brandName, primaryColor, tagline, contact, social, elements,
   fontFamily, stickers, stickerMeta,
+  // Template custom fields — nested objects
+  templateCustomFields, template_custom_fields,
+  // Root-level aliases the payload may carry
+  reviewerName, reviewerTitle, starRating,
+  speakerName, speakerTitle,
+  productName, productPrice,
+  eventName, eventDate, eventLocation,
+  announcementText,
 }) {
+  // Merge template custom fields from all possible sources
+  const mergedCustomFields = {
+    ...(template_custom_fields || {}),
+    ...(templateCustomFields || {}),
+    // Root-level aliases override nested objects
+    ...(reviewerName     ? { reviewerName } : {}),
+    ...(reviewerTitle    ? { reviewerTitle } : {}),
+    ...(starRating       ? { starRating } : {}),
+    ...(speakerName      ? { speakerName } : {}),
+    ...(speakerTitle     ? { speakerTitle } : {}),
+    ...(productName      ? { productName } : {}),
+    ...(productPrice     ? { productPrice } : {}),
+    ...(eventName        ? { eventName } : {}),
+    ...(eventDate        ? { eventDate } : {}),
+    ...(eventLocation    ? { eventLocation } : {}),
+    ...(announcementText ? { announcementText } : {}),
+  };
+  const hasCustomFields = Object.keys(mergedCustomFields).length > 0;
+
   const hasLogo = logoEnabled && logoPath;
   const targetHeight = logoTargetHeightPx || LOGO_SIZE_MAP[logoSize] || LOGO_SIZE_MAP.medium;
   const overlayPos = getOverlayPosition(logoPosition);
@@ -410,7 +670,7 @@ export async function brandVideo({
   const hasFooterContent = taglinePart || footerIcons.length > 0;
   const hasHeader = !!brandName;
 
-  console.log(`[video.js] Branding: logo=${hasLogo} (${logoSize}/${targetHeight}px), header=${brandName || "none"}, footerIcons=${footerIcons.length}, tagline=${tagline || "none"}, stickers=${stickerPngs.length}`);
+  console.log(`[video.js] Branding: logo=${hasLogo} (${logoSize}/${targetHeight}px), header=${brandName || "none"}, footerIcons=${footerIcons.length}, tagline=${tagline || "none"}, stickers=${stickerPngs.length}, customFields=${hasCustomFields}`);
 
   const filters = [];
   const inputs = ["-i", inputPath];
@@ -449,6 +709,26 @@ export async function brandVideo({
       inputIndex++;
       stickerYOffset += sticker.height + stickerGap;
     }
+  }
+
+  // ── Template custom field overlays ────────────────────────────────────────
+  let extraCleanupPaths = [];
+  if (hasCustomFields) {
+    const result = await buildTemplateOverlayFilters({
+      templateCustomFields: mergedCustomFields,
+      bgColor,
+      fontColor,
+      fontPath,
+      boldFontPath,
+      tempDir,
+      lastLabel,
+      inputIndex,
+      inputs,
+      filters,
+    });
+    lastLabel = result.lastLabel;
+    inputIndex = result.inputIndex;
+    if (result.cleanupPaths) extraCleanupPaths = result.cleanupPaths;
   }
 
   if (hasFooterContent) {
@@ -550,5 +830,8 @@ export async function brandVideo({
   }
   for (const sticker of stickerPngs) {
     await fs.unlink(sticker.path).catch(() => {});
+  }
+  for (const p of extraCleanupPaths) {
+    await fs.unlink(p).catch(() => {});
   }
 }
