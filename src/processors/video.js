@@ -413,6 +413,8 @@ async function renderStarRatingPng({ rating, max = 5, outPath, starSize = 18 }) 
 //   • Chapter Marker       → chapterTitle, chapterNumber
 //   • Customer Quote Card  → quoteText, quoteName, quoteCompany
 //   • Split-Screen Compare → beforeLabel, afterLabel
+//
+// IMPORTANT: drawbox uses "ih" for input height; drawtext uses "H" for video height.
 
 async function buildTemplateOverlayFilters({
   templateCustomFields, bgColor, fontColor, fontPath, boldFontPath,
@@ -429,7 +431,7 @@ async function buildTemplateOverlayFilters({
   const hasTestimonial = cf.reviewerName || cf.reviewerTitle || cf.starRating;
   if (hasTestimonial) {
     const barHeight = 70;
-    const barY = `H-${barHeight}-30`;
+    const barY = `ih-${barHeight}-30`;
 
     filters.push(
       `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.75:t=fill[v_testi_bg]`
@@ -488,7 +490,7 @@ async function buildTemplateOverlayFilters({
   const hasSpeaker = cf.speakerName || cf.speakerTitle;
   if (hasSpeaker && !hasTestimonial) {
     const barHeight = 56;
-    const barY = `H-${barHeight}-25`;
+    const barY = `ih-${barHeight}-25`;
 
     filters.push(
       `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.75:t=fill[v_spk_bg]`
@@ -548,7 +550,7 @@ async function buildTemplateOverlayFilters({
   const hasEvent = cf.eventName || cf.eventDate || cf.eventLocation;
   if (hasEvent) {
     const barHeight = 60;
-    const barY = `H-${barHeight}-20`;
+    const barY = `ih-${barHeight}-20`;
 
     filters.push(
       `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_evt_bg]`
@@ -583,7 +585,7 @@ async function buildTemplateOverlayFilters({
   if (cf.announcementText) {
     const barHeight = 40;
     filters.push(
-      `${lastLabel}drawbox=x=0:y=H-${barHeight}:w=iw:h=${barHeight}:color=${bgColor}@0.85:t=fill[v_ann_bg]`
+      `${lastLabel}drawbox=x=0:y=ih-${barHeight}:w=iw:h=${barHeight}:color=${bgColor}@0.85:t=fill[v_ann_bg]`
     );
     lastLabel = "[v_ann_bg]";
 
@@ -600,8 +602,7 @@ async function buildTemplateOverlayFilters({
   const hasChapter = cf.chapterTitle || cf.chapterNumber;
   if (hasChapter) {
     const barHeight = 60;
-    // Centered horizontal bar
-    const barY = `(H-${barHeight})/2`;
+    const barY = `(ih-${barHeight})/2`;
 
     filters.push(
       `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_chap_bg]`
@@ -610,7 +611,6 @@ async function buildTemplateOverlayFilters({
 
     if (cf.chapterNumber) {
       const escaped = escapeDrawText(String(cf.chapterNumber));
-      // Small chapter number above the title, centered
       const numY = `(H-${barHeight})/2+8`;
       filters.push(
         `${lastLabel}drawtext=text='${escaped}':fontsize=12:fontcolor=${fontColor}@0.7:x=(W-tw)/2:y=${numY}:fontfile=${fontPath}[v_chap_num]`
@@ -620,7 +620,6 @@ async function buildTemplateOverlayFilters({
 
     if (cf.chapterTitle) {
       const escaped = escapeDrawText(String(cf.chapterTitle));
-      // Title centered in the bar; offset down if chapter number is present
       const titleY = cf.chapterNumber ? `(H-${barHeight})/2+26` : `(H-${barHeight})/2+18`;
       filters.push(
         `${lastLabel}drawtext=text='${escaped}':fontsize=22:fontcolor=${fontColor}:x=(W-tw)/2:y=${titleY}:fontfile=${boldFontPath}[v_chap_title]`
@@ -635,7 +634,7 @@ async function buildTemplateOverlayFilters({
   const hasQuote = cf.quoteText || cf.quoteName || cf.quoteCompany;
   if (hasQuote) {
     const barHeight = 95;
-    const barY = `H-${barHeight}`;
+    const barY = `ih-${barHeight}`;
 
     filters.push(
       `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_quote_bg]`
@@ -651,7 +650,6 @@ async function buildTemplateOverlayFilters({
       lastLabel = "[v_quote_txt]";
     }
 
-    // Attribution line: "Name, Company"
     const attrParts = [];
     if (cf.quoteName) attrParts.push(String(cf.quoteName));
     if (cf.quoteCompany) attrParts.push(String(cf.quoteCompany));
@@ -670,7 +668,6 @@ async function buildTemplateOverlayFilters({
   // ── Split-Screen Compare (beforeLabel, afterLabel) ────────────────────────
   const hasSplit = cf.beforeLabel || cf.afterLabel;
   if (hasSplit) {
-    // Vertical divider line (2px wide, centered)
     filters.push(
       `${lastLabel}drawbox=x=(iw-2)/2:y=0:w=2:h=ih:color=${bgColor}@0.6:t=fill[v_split_div]`
     );
@@ -678,8 +675,7 @@ async function buildTemplateOverlayFilters({
 
     if (cf.beforeLabel) {
       const escaped = escapeDrawText(String(cf.beforeLabel));
-      // Left-side label, bottom area with pill background
-      const pillY = `H-50`;
+      const pillY = `ih-50`;
       filters.push(
         `${lastLabel}drawbox=x=10:y=${pillY}:w=120:h=30:color=${bgColor}@0.7:t=fill[v_split_lbg]`
       );
@@ -692,8 +688,7 @@ async function buildTemplateOverlayFilters({
 
     if (cf.afterLabel) {
       const escaped = escapeDrawText(String(cf.afterLabel));
-      // Right-side label, bottom area with pill background
-      const pillY = `H-50`;
+      const pillY = `ih-50`;
       filters.push(
         `${lastLabel}drawbox=x=iw-130:y=${pillY}:w=120:h=30:color=${bgColor}@0.7:t=fill[v_split_rbg]`
       );
