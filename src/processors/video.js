@@ -519,9 +519,24 @@ export async function brandVideo({
   }
 
   if (filters.length > 0) {
+    // Normalize timestamps to prevent PTS drift with multiple overlays
     const finalLabel = lastLabel.replace("[", "").replace("]", "");
+    filters.push(`[${finalLabel}]setpts=PTS-STARTPTS[v_out]`);
+
     const filterComplex = filters.join(";");
-    const args = ["-y", ...inputs, "-filter_complex", filterComplex, "-map", `[${finalLabel}]`, "-map", "0:a?", "-c:a", "copy", "-shortest", outputPath];
+    const args = [
+      "-y",
+      ...inputs,
+      "-filter_complex", filterComplex,
+      "-map", "[v_out]",
+      "-map", "0:a?",
+      "-c:v", "libx264",
+      "-preset", "fast",
+      "-crf", "23",
+      "-c:a", "copy",
+      "-shortest",
+      outputPath,
+    ];
     console.log(`[video.js] FFmpeg filter_complex (${filters.length} filters, ${inputIndex} inputs)`);
     console.log(`[video.js] Filter: ${filterComplex.slice(0, 500)}...`);
     await run("ffmpeg", args);
