@@ -410,6 +410,9 @@ async function renderStarRatingPng({ rating, max = 5, outPath, starSize = 18 }) 
 //   • Product Demo Banner  → productName, productPrice
 //   • Event Countdown      → eventName, eventDate, eventLocation
 //   • Hiring / Announcement → announcementText
+//   • Chapter Marker       → chapterTitle, chapterNumber
+//   • Customer Quote Card  → quoteText, quoteName, quoteCompany
+//   • Split-Screen Compare → beforeLabel, afterLabel
 
 async function buildTemplateOverlayFilters({
   templateCustomFields, bgColor, fontColor, fontPath, boldFontPath,
@@ -593,6 +596,117 @@ async function buildTemplateOverlayFilters({
     console.log(`[video.js] Announcement overlay: text=${cf.announcementText}`);
   }
 
+  // ── Chapter Marker (chapterTitle, chapterNumber) ──────────────────────────
+  const hasChapter = cf.chapterTitle || cf.chapterNumber;
+  if (hasChapter) {
+    const barHeight = 60;
+    // Centered horizontal bar
+    const barY = `(H-${barHeight})/2`;
+
+    filters.push(
+      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_chap_bg]`
+    );
+    lastLabel = "[v_chap_bg]";
+
+    if (cf.chapterNumber) {
+      const escaped = escapeDrawText(String(cf.chapterNumber));
+      // Small chapter number above the title, centered
+      const numY = `(H-${barHeight})/2+8`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=12:fontcolor=${fontColor}@0.7:x=(W-tw)/2:y=${numY}:fontfile=${fontPath}[v_chap_num]`
+      );
+      lastLabel = "[v_chap_num]";
+    }
+
+    if (cf.chapterTitle) {
+      const escaped = escapeDrawText(String(cf.chapterTitle));
+      // Title centered in the bar; offset down if chapter number is present
+      const titleY = cf.chapterNumber ? `(H-${barHeight})/2+26` : `(H-${barHeight})/2+18`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=22:fontcolor=${fontColor}:x=(W-tw)/2:y=${titleY}:fontfile=${boldFontPath}[v_chap_title]`
+      );
+      lastLabel = "[v_chap_title]";
+    }
+
+    console.log(`[video.js] Chapter marker overlay: number=${cf.chapterNumber || "—"}, title=${cf.chapterTitle || "—"}`);
+  }
+
+  // ── Customer Quote Card (quoteText, quoteName, quoteCompany) ──────────────
+  const hasQuote = cf.quoteText || cf.quoteName || cf.quoteCompany;
+  if (hasQuote) {
+    const barHeight = 95;
+    const barY = `H-${barHeight}`;
+
+    filters.push(
+      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_quote_bg]`
+    );
+    lastLabel = "[v_quote_bg]";
+
+    if (cf.quoteText) {
+      const escaped = escapeDrawText(`"${String(cf.quoteText)}"`);
+      const quoteY = `H-${barHeight}+12`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=16:fontcolor=${fontColor}:x=20:y=${quoteY}:fontfile=${fontPath}[v_quote_txt]`
+      );
+      lastLabel = "[v_quote_txt]";
+    }
+
+    // Attribution line: "Name, Company"
+    const attrParts = [];
+    if (cf.quoteName) attrParts.push(String(cf.quoteName));
+    if (cf.quoteCompany) attrParts.push(String(cf.quoteCompany));
+    if (attrParts.length > 0) {
+      const escaped = escapeDrawText("— " + attrParts.join(", "));
+      const attrY = cf.quoteText ? `H-${barHeight}+50` : `H-${barHeight}+20`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.8:x=20:y=${attrY}:fontfile=${boldFontPath}[v_quote_attr]`
+      );
+      lastLabel = "[v_quote_attr]";
+    }
+
+    console.log(`[video.js] Quote card overlay: text=${cf.quoteText ? cf.quoteText.slice(0, 40) + "…" : "—"}, name=${cf.quoteName || "—"}, company=${cf.quoteCompany || "—"}`);
+  }
+
+  // ── Split-Screen Compare (beforeLabel, afterLabel) ────────────────────────
+  const hasSplit = cf.beforeLabel || cf.afterLabel;
+  if (hasSplit) {
+    // Vertical divider line (2px wide, centered)
+    filters.push(
+      `${lastLabel}drawbox=x=(iw-2)/2:y=0:w=2:h=ih:color=${bgColor}@0.6:t=fill[v_split_div]`
+    );
+    lastLabel = "[v_split_div]";
+
+    if (cf.beforeLabel) {
+      const escaped = escapeDrawText(String(cf.beforeLabel));
+      // Left-side label, bottom area with pill background
+      const pillY = `H-50`;
+      filters.push(
+        `${lastLabel}drawbox=x=10:y=${pillY}:w=120:h=30:color=${bgColor}@0.7:t=fill[v_split_lbg]`
+      );
+      lastLabel = "[v_split_lbg]";
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}:x=20:y=H-50+8:fontfile=${boldFontPath}[v_split_ltxt]`
+      );
+      lastLabel = "[v_split_ltxt]";
+    }
+
+    if (cf.afterLabel) {
+      const escaped = escapeDrawText(String(cf.afterLabel));
+      // Right-side label, bottom area with pill background
+      const pillY = `H-50`;
+      filters.push(
+        `${lastLabel}drawbox=x=iw-130:y=${pillY}:w=120:h=30:color=${bgColor}@0.7:t=fill[v_split_rbg]`
+      );
+      lastLabel = "[v_split_rbg]";
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}:x=W-120:y=H-50+8:fontfile=${boldFontPath}[v_split_rtxt]`
+      );
+      lastLabel = "[v_split_rtxt]";
+    }
+
+    console.log(`[video.js] Split-screen overlay: before=${cf.beforeLabel || "—"}, after=${cf.afterLabel || "—"}`);
+  }
+
   return { lastLabel, inputIndex, cleanupPaths };
 }
 
@@ -610,6 +724,9 @@ export async function brandVideo({
   productName, productPrice,
   eventName, eventDate, eventLocation,
   announcementText,
+  chapterTitle, chapterNumber,
+  quoteText, quoteName, quoteCompany,
+  beforeLabel, afterLabel,
 }) {
   // Merge template custom fields from all possible sources
   const mergedCustomFields = {
@@ -627,6 +744,13 @@ export async function brandVideo({
     ...(eventDate        ? { eventDate } : {}),
     ...(eventLocation    ? { eventLocation } : {}),
     ...(announcementText ? { announcementText } : {}),
+    ...(chapterTitle     ? { chapterTitle } : {}),
+    ...(chapterNumber    ? { chapterNumber } : {}),
+    ...(quoteText        ? { quoteText } : {}),
+    ...(quoteName        ? { quoteName } : {}),
+    ...(quoteCompany     ? { quoteCompany } : {}),
+    ...(beforeLabel      ? { beforeLabel } : {}),
+    ...(afterLabel       ? { afterLabel } : {}),
   };
   const hasCustomFields = Object.keys(mergedCustomFields).length > 0;
 
