@@ -1,6 +1,7 @@
 import { run } from "../utils.js";
 import fs from "fs/promises";
 import path from "path";
+import { execFileSync } from "child_process";
 
 const LOGO_SIZE_MAP = {
   small: 50,
@@ -363,6 +364,34 @@ function extractHandle(url) {
   }
 }
 
+// ─── Video probe helper ────────────────────────────────────────────────────────
+// Returns { width, height, fps } of the input video for segment generation.
+
+function probeVideoInfo(inputPath) {
+  try {
+    const out = execFileSync("ffprobe", [
+      "-v", "error",
+      "-select_streams", "v:0",
+      "-show_entries", "stream=width,height,r_frame_rate",
+      "-of", "csv=p=0",
+      inputPath,
+    ], { encoding: "utf-8" }).trim();
+    const parts = out.split(",");
+    const width = parseInt(parts[0], 10) || 1920;
+    const height = parseInt(parts[1], 10) || 1080;
+    const fpsRaw = parts[2] || "30/1";
+    const fpsParts = fpsRaw.split("/");
+    const fps = fpsParts.length === 2
+      ? Math.round(parseInt(fpsParts[0], 10) / parseInt(fpsParts[1], 10))
+      : parseInt(fpsRaw, 10) || 30;
+    console.log(`[video.js] Probed video: ${width}x${height} @ ${fps}fps`);
+    return { width, height, fps };
+  } catch (e) {
+    console.warn(`[video.js] ffprobe failed, using defaults: ${e.message}`);
+    return { width: 1920, height: 1080, fps: 30 };
+  }
+}
+
 // ─── Star rating SVG renderer ──────────────────────────────────────────────────
 // Renders N filled-yellow / empty-grey stars as a PNG via SVG + rsvg-convert.
 
@@ -408,8 +437,8 @@ async function renderStarRatingPng({ rating, max = 5, outPath, starSize = 18 }) 
 //   • Testimonial Overlay  → reviewerName, reviewerTitle, starRating
 //   • Lower Third / Speaker → speakerName, speakerTitle
 //   • Product Demo Banner  → productName, productPrice
-//   • Event Countdown      → eventName, eventDate, eventLocation
-//   • Hiring / Announcement → announcementText
+//   • Event Countdown      → eventName, eventDate, eventLocation (CENTERED)
+//   • Hiring / Announcement → announcementText (ABOVE footer)
 //   • Chapter Marker       → chapterTitle, chapterNumber
 //   • Customer Quote Card  → quoteText, quoteName, quoteCompany
 //   • Split-Screen Compare → beforeLabel, afterLabel
@@ -419,13 +448,15 @@ async function renderStarRatingPng({ rating, max = 5, outPath, starSize = 18 }) 
 async function buildTemplateOverlayFilters({
   templateCustomFields, bgColor, fontColor, fontPath, boldFontPath,
   tempDir, lastLabel, inputIndex, inputs, filters,
+  hasFooterContent,
 }) {
   if (!templateCustomFields || typeof templateCustomFields !== "object") {
-    return { lastLabel, inputIndex, cleanupPaths: [] };
+    return { lastLabel, inputIndex, cleanupPaths: [], skipFooter: false };
   }
 
   const cf = templateCustomFields;
   const cleanupPaths = [];
+  let skipFooter = false;
 
   // ── Testimonial Overlay (reviewerName, reviewerTitle, starRating) ──────────
   const hasTestimonial = cf.reviewerName || cf.reviewerTitle || cf.starRating;
@@ -546,56 +577,77 @@ async function buildTemplateOverlayFilters({
     console.log(`[video.js] Product overlay: name=${cf.productName || "—"}, price=${cf.productPrice || "—"}`);
   }
 
-  // ── Event Countdown Strip (eventName, eventDate, eventLocation) ───────────
+  // ── Event Countdown — CENTERED display (eventName, eventDate, eventLocation) ──
   const hasEvent = cf.eventName || cf.eventDate || cf.eventLocation;
   if (hasEvent) {
-    const barHeight = 60;
-    const barY = `ih-${barHeight}-20`;
+    // Centered semi-transparent box instead of a footer strip
+    const boxW = 500;
+    const boxH = 140;
+    const boxX = `(iw-${boxW})/2`;
+    const boxY = `(ih-${boxH})/2`;
 
     filters.push(
-      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_evt_bg]`
+      `${lastLabel}drawbox=x=${boxX}:y=${boxY}:w=${boxW}:h=${boxH}:color=${bgColor}@0.8:t=fill[v_evt_bg]`
     );
     lastLabel = "[v_evt_bg]";
 
+    let yOff = 25; // offset inside the box, relative to box top
+
     if (cf.eventName) {
       const escaped = escapeDrawText(String(cf.eventName));
-      const nameY = `H-${barHeight}-20+10`;
+      const nameY = `(H-${boxH})/2+${yOff}`;
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=20:y=${nameY}:fontfile=${boldFontPath}[v_evt_name]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=24:fontcolor=${fontColor}:x=(W-tw)/2:y=${nameY}:fontfile=${boldFontPath}[v_evt_name]`
       );
       lastLabel = "[v_evt_name]";
+      yOff += 36;
     }
 
-    const line2Parts = [];
-    if (cf.eventDate) line2Parts.push(String(cf.eventDate));
-    if (cf.eventLocation) line2Parts.push(String(cf.eventLocation));
-    if (line2Parts.length > 0) {
-      const escaped = escapeDrawText(line2Parts.join("  •  "));
-      const dateY = `H-${barHeight}-20+34`;
+    if (cf.eventDate) {
+      const escaped = escapeDrawText(String(cf.eventDate));
+      const dateY = `(H-${boxH})/2+${yOff}`;
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.85:x=20:y=${dateY}:fontfile=${fontPath}[v_evt_date]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=16:fontcolor=${fontColor}@0.9:x=(W-tw)/2:y=${dateY}:fontfile=${fontPath}[v_evt_date]`
       );
       lastLabel = "[v_evt_date]";
+      yOff += 26;
     }
 
-    console.log(`[video.js] Event overlay: name=${cf.eventName || "—"}, date=${cf.eventDate || "—"}, location=${cf.eventLocation || "—"}`);
+    if (cf.eventLocation) {
+      const escaped = escapeDrawText(String(cf.eventLocation));
+      const locY = `(H-${boxH})/2+${yOff}`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}@0.8:x=(W-tw)/2:y=${locY}:fontfile=${fontPath}[v_evt_loc]`
+      );
+      lastLabel = "[v_evt_loc]";
+    }
+
+    // Skip the standard footer — event countdown uses the centered display only
+    skipFooter = true;
+
+    console.log(`[video.js] Event countdown (centered): name=${cf.eventName || "—"}, date=${cf.eventDate || "—"}, location=${cf.eventLocation || "—"}`);
   }
 
-  // ── Hiring / Announcement Bar (announcementText) ──────────────────────────
+  // ── Hiring / Announcement Bar (announcementText) — ABOVE footer ───────────
   if (cf.announcementText) {
     const barHeight = 40;
+    // Position above the footer bar (footer is 32px). If no footer, sit at bottom.
+    const footerOffset = hasFooterContent ? 32 : 0;
+    const barY = `ih-${barHeight}-${footerOffset}`;
+
     filters.push(
-      `${lastLabel}drawbox=x=0:y=ih-${barHeight}:w=iw:h=${barHeight}:color=${bgColor}@0.85:t=fill[v_ann_bg]`
+      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.85:t=fill[v_ann_bg]`
     );
     lastLabel = "[v_ann_bg]";
 
     const escaped = escapeDrawText(String(cf.announcementText));
+    const textY = `H-${barHeight}-${footerOffset}+12`;
     filters.push(
-      `${lastLabel}drawtext=text='${escaped}':fontsize=16:fontcolor=${fontColor}:x=(W-tw)/2:y=H-${barHeight}+12:fontfile=${boldFontPath}[v_ann_text]`
+      `${lastLabel}drawtext=text='${escaped}':fontsize=16:fontcolor=${fontColor}:x=(W-tw)/2:y=${textY}:fontfile=${boldFontPath}[v_ann_text]`
     );
     lastLabel = "[v_ann_text]";
 
-    console.log(`[video.js] Announcement overlay: text=${cf.announcementText}`);
+    console.log(`[video.js] Announcement overlay (above footer): text=${cf.announcementText}`);
   }
 
   // ── Chapter Marker (chapterTitle, chapterNumber) ──────────────────────────
@@ -702,7 +754,266 @@ async function buildTemplateOverlayFilters({
     console.log(`[video.js] Split-screen overlay: before=${cf.beforeLabel || "—"}, after=${cf.afterLabel || "—"}`);
   }
 
-  return { lastLabel, inputIndex, cleanupPaths };
+  return { lastLabel, inputIndex, cleanupPaths, skipFooter };
+}
+
+// ─── Branded text segment generator ────────────────────────────────────────────
+// Creates a solid-color video segment with centered text overlays via drawtext.
+// Used by Intro/Outro Bumper and End Card CTA templates.
+
+async function createTextSegment({
+  outPath, duration, width, height, fps, bgHex,
+  fontColor, fontPath, boldFontPath, logoPath, logoHeight,
+  lines, // Array of { text, fontSize, bold, yOffset, opacity }
+}) {
+  const filters = [];
+  const inputs = [];
+  let inputIndex = 0;
+  let lastLabel = "[0:v]";
+
+  // Generate solid color background
+  const bgClean = bgHex.replace("0x", "#");
+  filters.push(
+    `color=c=${bgClean}:s=${width}x${height}:d=${duration}:r=${fps},format=yuv420p[bg]`
+  );
+  lastLabel = "[bg]";
+
+  // Logo overlay centered
+  if (logoPath) {
+    inputs.push("-i", logoPath);
+    const lh = logoHeight || 80;
+    filters.push(`[${inputIndex}:v]scale=-1:${lh},format=rgba[seg_logo]`);
+    // Place logo above text block center
+    const logoY = Math.round(height * 0.25);
+    filters.push(`${lastLabel}[seg_logo]overlay=(W-w)/2:${logoY}[v_seg_logo]`);
+    lastLabel = "[v_seg_logo]";
+    inputIndex++;
+  }
+
+  // Draw text lines
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.text) continue;
+    const escaped = escapeDrawText(String(line.text));
+    const fSize = line.fontSize || 20;
+    const font = line.bold ? boldFontPath : fontPath;
+    const opacity = line.opacity ? `@${line.opacity}` : "";
+    const yPos = line.yOffset || Math.round(height / 2 + i * 30);
+    const outLabel = `v_seg_t${i}`;
+    filters.push(
+      `${lastLabel}drawtext=text='${escaped}':fontsize=${fSize}:fontcolor=${fontColor}${opacity}:x=(W-tw)/2:y=${yPos}:fontfile=${font}[${outLabel}]`
+    );
+    lastLabel = `[${outLabel}]`;
+  }
+
+  const filterComplex = filters.join(";");
+  const args = [
+    "-y",
+    ...inputs,
+    "-filter_complex", filterComplex,
+    "-map", lastLabel,
+    "-t", String(duration),
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "23",
+    "-an",
+    outPath,
+  ];
+
+  console.log(`[video.js] Creating text segment: ${duration}s ${width}x${height}`);
+  await run("ffmpeg", args);
+  return outPath;
+}
+
+// ─── End Card CTA segment with 2-column grid ───────────────────────────────────
+
+async function createEndCardSegment({
+  outPath, duration, width, height, fps, bgHex,
+  fontColor, fontPath, boldFontPath, logoPath, logoHeight,
+  brandName, tagline, social, contact,
+  tempDir,
+}) {
+  const filters = [];
+  const inputs = [];
+  let inputIndex = 0;
+  let lastLabel;
+
+  const bgClean = bgHex.replace("0x", "#");
+  filters.push(
+    `color=c=${bgClean}:s=${width}x${height}:d=${duration}:r=${fps},format=yuv420p[bg]`
+  );
+  lastLabel = "[bg]";
+
+  // Logo centered near top
+  if (logoPath) {
+    inputs.push("-i", logoPath);
+    const lh = logoHeight || 80;
+    filters.push(`[${inputIndex}:v]scale=-1:${lh},format=rgba[ec_logo]`);
+    const logoY = Math.round(height * 0.12);
+    filters.push(`${lastLabel}[ec_logo]overlay=(W-w)/2:${logoY}[v_ec_logo]`);
+    lastLabel = "[v_ec_logo]";
+    inputIndex++;
+  }
+
+  // Brand name
+  let textY = Math.round(height * 0.35);
+  if (brandName) {
+    const escaped = escapeDrawText(String(brandName));
+    filters.push(
+      `${lastLabel}drawtext=text='${escaped}':fontsize=28:fontcolor=${fontColor}:x=(W-tw)/2:y=${textY}:fontfile=${boldFontPath}[v_ec_brand]`
+    );
+    lastLabel = "[v_ec_brand]";
+    textY += 40;
+  }
+
+  // Tagline
+  if (tagline) {
+    const escaped = escapeDrawText(String(tagline));
+    filters.push(
+      `${lastLabel}drawtext=text='${escaped}':fontsize=16:fontcolor=${fontColor}@0.8:x=(W-tw)/2:y=${textY}:fontfile=${fontPath}[v_ec_tag]`
+    );
+    lastLabel = "[v_ec_tag]";
+    textY += 35;
+  }
+
+  // Build grid entries (contact + social)
+  const gridEntries = [];
+  if (contact?.website) gridEntries.push({ key: "website", svg: CONTACT_ICON_SVGS.website, label: contact.website });
+  if (contact?.phone)   gridEntries.push({ key: "phone",   svg: CONTACT_ICON_SVGS.phone,   label: contact.phone });
+  if (contact?.email)   gridEntries.push({ key: "email",   svg: CONTACT_ICON_SVGS.email,   label: contact.email });
+  if (contact?.address) gridEntries.push({ key: "address", svg: CONTACT_ICON_SVGS.address,  label: contact.address });
+  if (social) {
+    const platforms = ["facebook", "instagram", "twitter", "linkedin", "youtube", "tiktok"];
+    for (const p of platforms) {
+      if (social[p]) {
+        gridEntries.push({ key: p, svg: SOCIAL_ICON_SVGS[p], label: extractHandle(social[p]) });
+      }
+    }
+  }
+
+  // Render grid in 2 columns
+  if (gridEntries.length > 0) {
+    const iconSize = 22;
+    const rowHeight = 32;
+    const colWidth = Math.round(width * 0.4);
+    const gridStartY = textY + 10;
+    const gridStartX = Math.round((width - colWidth * 2) / 2);
+
+    for (let i = 0; i < gridEntries.length; i++) {
+      const entry = gridEntries[i];
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = gridStartX + col * colWidth;
+      const y = gridStartY + row * rowHeight;
+
+      // Render icon PNG
+      const iconOutPath = path.join(tempDir, `ec_icon_${entry.key}.png`);
+      const iconPngPath = await svgToPng(entry.svg, iconOutPath, iconSize);
+      inputs.push("-i", iconPngPath);
+      const iconLabel = `ec_i_${i}`;
+      filters.push(`[${inputIndex}:v]scale=${iconSize}:${iconSize},format=rgba[${iconLabel}]`);
+      const overlayLabel = `v_ec_gi_${i}`;
+      filters.push(`${lastLabel}[${iconLabel}]overlay=x=${x}:y=${y}[${overlayLabel}]`);
+      lastLabel = `[${overlayLabel}]`;
+      inputIndex++;
+
+      // Draw label text next to icon
+      const escaped = escapeDrawText(String(entry.label));
+      const labelX = x + iconSize + 8;
+      const labelY = y + 4;
+      const labelOut = `v_ec_gt_${i}`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.9:x=${labelX}:y=${labelY}:fontfile=${fontPath}[${labelOut}]`
+      );
+      lastLabel = `[${labelOut}]`;
+    }
+  }
+
+  const filterComplex = filters.join(";");
+  const args = [
+    "-y",
+    ...inputs,
+    "-filter_complex", filterComplex,
+    "-map", lastLabel,
+    "-t", String(duration),
+    "-c:v", "libx264",
+    "-preset", "fast",
+    "-crf", "23",
+    "-an",
+    outPath,
+  ];
+
+  console.log(`[video.js] Creating end card CTA segment: ${duration}s ${width}x${height}, ${gridEntries.length} grid items`);
+  await run("ffmpeg", args);
+  return outPath;
+}
+
+// ─── Concatenation helper ──────────────────────────────────────────────────────
+// Concatenates segments via FFmpeg concat demuxer. All segments must have the same
+// resolution, fps, and codec. Silent audio is added to segments that lack it.
+
+async function concatSegments({ segments, outputPath, tempDir, hasAudio }) {
+  // Add silent audio to segments that need it
+  const prepared = [];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (seg.needsAudio && hasAudio) {
+      const withAudio = path.join(tempDir, `seg_audio_${i}.mp4`);
+      await run("ffmpeg", [
+        "-y",
+        "-i", seg.path,
+        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-shortest",
+        withAudio,
+      ]);
+      prepared.push(withAudio);
+    } else {
+      prepared.push(seg.path);
+    }
+  }
+
+  // Write concat list
+  const listPath = path.join(tempDir, "concat_list.txt");
+  const listContent = prepared.map(p => `file '${p}'`).join("\n");
+  await fs.writeFile(listPath, listContent, "utf-8");
+
+  await run("ffmpeg", [
+    "-y",
+    "-f", "concat",
+    "-safe", "0",
+    "-i", listPath,
+    "-c", "copy",
+    outputPath,
+  ]);
+
+  // Cleanup
+  await fs.unlink(listPath).catch(() => {});
+  for (const p of prepared) {
+    if (p !== segments.find(s => s.isMain)?.path) {
+      // Don't delete the main branded video yet — caller handles that
+    }
+  }
+
+  console.log(`[video.js] Concatenated ${segments.length} segments → ${outputPath}`);
+}
+
+// ─── Detect if input video has audio ───────────────────────────────────────────
+
+function videoHasAudio(inputPath) {
+  try {
+    const out = execFileSync("ffprobe", [
+      "-v", "error",
+      "-select_streams", "a:0",
+      "-show_entries", "stream=codec_type",
+      "-of", "csv=p=0",
+      inputPath,
+    ], { encoding: "utf-8" }).trim();
+    return out === "audio";
+  } catch {
+    return false;
+  }
 }
 
 export async function brandVideo({
@@ -711,6 +1022,8 @@ export async function brandVideo({
   logoOpacity = 0.9, logoTargetHeightPx, logoEnabled = true,
   brandName, primaryColor, tagline, contact, social, elements,
   fontFamily, stickers, stickerMeta,
+  // Template identity
+  templateFamilyId, template_family_id,
   // Template custom fields — nested objects
   templateCustomFields, template_custom_fields,
   // Root-level aliases the payload may carry
@@ -722,7 +1035,11 @@ export async function brandVideo({
   chapterTitle, chapterNumber,
   quoteText, quoteName, quoteCompany,
   beforeLabel, afterLabel,
+  introText, intro_text,
 }) {
+  const familyId = templateFamilyId || template_family_id || null;
+  const mergedIntroText = introText || intro_text || null;
+
   // Merge template custom fields from all possible sources
   const mergedCustomFields = {
     ...(template_custom_fields || {}),
@@ -789,7 +1106,12 @@ export async function brandVideo({
   const hasFooterContent = taglinePart || footerIcons.length > 0;
   const hasHeader = !!brandName;
 
-  console.log(`[video.js] Branding: logo=${hasLogo} (${logoSize}/${targetHeight}px), header=${brandName || "none"}, footerIcons=${footerIcons.length}, tagline=${tagline || "none"}, stickers=${stickerPngs.length}, customFields=${hasCustomFields}`);
+  // Detect concat templates
+  const isEndCard = familyId === "vid-end-card";
+  const isIntroBumper = familyId === "vid-intro-outro";
+  const needsConcat = isEndCard || isIntroBumper;
+
+  console.log(`[video.js] Branding: logo=${hasLogo} (${logoSize}/${targetHeight}px), header=${brandName || "none"}, footerIcons=${footerIcons.length}, tagline=${tagline || "none"}, stickers=${stickerPngs.length}, customFields=${hasCustomFields}, template=${familyId || "none"}, concat=${needsConcat}`);
 
   const filters = [];
   const inputs = ["-i", inputPath];
@@ -832,6 +1154,7 @@ export async function brandVideo({
 
   // ── Template custom field overlays ────────────────────────────────────────
   let extraCleanupPaths = [];
+  let skipFooter = false;
   if (hasCustomFields) {
     const result = await buildTemplateOverlayFilters({
       templateCustomFields: mergedCustomFields,
@@ -844,13 +1167,15 @@ export async function brandVideo({
       inputIndex,
       inputs,
       filters,
+      hasFooterContent,
     });
     lastLabel = result.lastLabel;
     inputIndex = result.inputIndex;
     if (result.cleanupPaths) extraCleanupPaths = result.cleanupPaths;
+    if (result.skipFooter) skipFooter = true;
   }
 
-  if (hasFooterContent) {
+  if (hasFooterContent && !skipFooter) {
     const footerHeight = 32;
 
     filters.push(`${lastLabel}drawbox=x=0:y=ih-${footerHeight}:w=iw:h=${footerHeight}:color=${bgColor}@0.7:t=fill[v_ftr_bg]`);
@@ -917,6 +1242,11 @@ export async function brandVideo({
     }
   }
 
+  // Determine output path — if concat needed, brand to a temp file first
+  const brandedOutput = needsConcat
+    ? path.join(tempDir, "branded_main.mp4")
+    : outputPath;
+
   if (filters.length > 0) {
     // Normalize timestamps to prevent PTS drift with multiple overlays
     const finalLabel = lastLabel.replace("[", "").replace("]", "");
@@ -934,14 +1264,155 @@ export async function brandVideo({
       "-crf", "23",
       "-c:a", "copy",
       "-shortest",
-      outputPath,
+      brandedOutput,
     ];
     console.log(`[video.js] FFmpeg filter_complex (${filters.length} filters, ${inputIndex} inputs)`);
     console.log(`[video.js] Filter: ${filterComplex.slice(0, 500)}...`);
     await run("ffmpeg", args);
   } else {
     console.log("[video.js] No branding elements, copying input to output");
-    await fs.copyFile(inputPath, outputPath);
+    await fs.copyFile(inputPath, brandedOutput);
+  }
+
+  // ── Concat templates: End Card CTA / Intro-Outro Bumper ───────────────────
+  if (needsConcat) {
+    const videoInfo = probeVideoInfo(brandedOutput);
+    const hasAudio = videoHasAudio(brandedOutput);
+    const concatCleanup = [brandedOutput];
+
+    try {
+      if (isEndCard) {
+        // Append a 10-second branded end card with 2-column grid
+        const endCardPath = path.join(tempDir, "end_card.mp4");
+        await createEndCardSegment({
+          outPath: endCardPath,
+          duration: 10,
+          width: videoInfo.width,
+          height: videoInfo.height,
+          fps: videoInfo.fps,
+          bgHex: bgColor,
+          fontColor,
+          fontPath,
+          boldFontPath,
+          logoPath: hasLogo ? logoPath : null,
+          logoHeight: targetHeight,
+          brandName,
+          tagline,
+          social,
+          contact,
+          tempDir,
+        });
+        concatCleanup.push(endCardPath);
+
+        await concatSegments({
+          segments: [
+            { path: brandedOutput, isMain: true, needsAudio: false },
+            { path: endCardPath, needsAudio: hasAudio },
+          ],
+          outputPath,
+          tempDir,
+          hasAudio,
+        });
+
+        console.log("[video.js] End Card CTA: appended 10s branded grid segment");
+
+      } else if (isIntroBumper) {
+        // Prepend 3s intro, append 5s outro
+        const introPath = path.join(tempDir, "intro_seg.mp4");
+        const outroPath = path.join(tempDir, "outro_seg.mp4");
+
+        // Build intro text lines
+        const introLines = [];
+        const centerY = Math.round(videoInfo.height * 0.45);
+        if (brandName) {
+          introLines.push({ text: brandName, fontSize: 32, bold: true, yOffset: centerY });
+        }
+        if (mergedIntroText) {
+          introLines.push({
+            text: mergedIntroText,
+            fontSize: 18,
+            bold: false,
+            yOffset: centerY + (brandName ? 44 : 0),
+            opacity: 0.85,
+          });
+        }
+        if (tagline && !mergedIntroText) {
+          introLines.push({
+            text: tagline,
+            fontSize: 18,
+            bold: false,
+            yOffset: centerY + (brandName ? 44 : 0),
+            opacity: 0.8,
+          });
+        }
+
+        await createTextSegment({
+          outPath: introPath,
+          duration: 3,
+          width: videoInfo.width,
+          height: videoInfo.height,
+          fps: videoInfo.fps,
+          bgHex: bgColor,
+          fontColor,
+          fontPath,
+          boldFontPath,
+          logoPath: hasLogo ? logoPath : null,
+          logoHeight: targetHeight,
+          lines: introLines,
+        });
+        concatCleanup.push(introPath);
+
+        // Build outro text lines
+        const outroLines = [];
+        const outroCenterY = Math.round(videoInfo.height * 0.45);
+        if (brandName) {
+          outroLines.push({ text: brandName, fontSize: 32, bold: true, yOffset: outroCenterY });
+        }
+        if (tagline) {
+          outroLines.push({
+            text: tagline,
+            fontSize: 18,
+            bold: false,
+            yOffset: outroCenterY + (brandName ? 44 : 0),
+            opacity: 0.8,
+          });
+        }
+
+        await createTextSegment({
+          outPath: outroPath,
+          duration: 5,
+          width: videoInfo.width,
+          height: videoInfo.height,
+          fps: videoInfo.fps,
+          bgHex: bgColor,
+          fontColor,
+          fontPath,
+          boldFontPath,
+          logoPath: hasLogo ? logoPath : null,
+          logoHeight: targetHeight,
+          lines: outroLines,
+        });
+        concatCleanup.push(outroPath);
+
+        await concatSegments({
+          segments: [
+            { path: introPath, needsAudio: hasAudio },
+            { path: brandedOutput, isMain: true, needsAudio: false },
+            { path: outroPath, needsAudio: hasAudio },
+          ],
+          outputPath,
+          tempDir,
+          hasAudio,
+        });
+
+        console.log("[video.js] Intro/Outro Bumper: prepended 3s intro + appended 5s outro");
+      }
+    } finally {
+      // Clean up temp concat files
+      for (const p of concatCleanup) {
+        await fs.unlink(p).catch(() => {});
+      }
+    }
   }
 
   for (const icon of footerIcons) {
