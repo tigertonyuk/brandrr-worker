@@ -467,9 +467,12 @@ async function buildTemplateOverlayFilters({
   if (hasTestimonial) {
     const barHeight = 70;
     const barY = `ih-${barHeight}-30`;
+    const barX = 20;
+    const barW = `iw*0.45`;
+    const textX = barX + 12;
 
     filters.push(
-      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.75:t=fill[v_testi_bg]`
+      `${lastLabel}drawbox=x=${barX}:y=${barY}:w=${barW}:h=${barHeight}:color=${bgColor}@0.75:t=fill[v_testi_bg]`
     );
     lastLabel = "[v_testi_bg]";
 
@@ -479,7 +482,7 @@ async function buildTemplateOverlayFilters({
       const escaped = escapeDrawText(String(cf.reviewerName));
       const nameY = `H-${barHeight}-30+12`;
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=20:fontcolor=${fontColor}:x=20:y=${nameY}:fontfile=${boldFontPath}[v_testi_name]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=20:fontcolor=${fontColor}:x=${textX}:y=${nameY}:fontfile=${boldFontPath}[v_testi_name]`
       );
       lastLabel = "[v_testi_name]";
       textY = 36;
@@ -489,7 +492,7 @@ async function buildTemplateOverlayFilters({
       const escaped = escapeDrawText(String(cf.reviewerTitle));
       const titleY = `H-${barHeight}-30+${textY > 0 ? textY : 14}`;
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}@0.8:x=20:y=${titleY}:fontfile=${fontPath}[v_testi_title]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}@0.8:x=${textX}:y=${titleY}:fontfile=${fontPath}[v_testi_title]`
       );
       lastLabel = "[v_testi_title]";
       textY = textY > 0 ? textY + 20 : 38;
@@ -510,7 +513,7 @@ async function buildTemplateOverlayFilters({
         filters.push(`[${inputIndex}:v]format=rgba[${starLabel}]`);
         const starY = `H-${barHeight}-30+${textY > 0 ? textY : 14}`;
         filters.push(
-          `${lastLabel}[${starLabel}]overlay=x=20:y=${starY}[v_testi_stars]`
+          `${lastLabel}[${starLabel}]overlay=x=${textX}:y=${starY}[v_testi_stars]`
         );
         lastLabel = "[v_testi_stars]";
         inputIndex++;
@@ -526,9 +529,14 @@ async function buildTemplateOverlayFilters({
   if (hasSpeaker && !hasTestimonial) {
     const barHeight = 56;
     const barY = `ih-${barHeight}-25`;
+    const barX = 20;
+    // Contact Lower Third uses 55% width; standard Lower Third uses 45%
+    const isContactLT = templateFamilyId === "vid-contact-lower-third";
+    const barW = isContactLT ? `iw*0.55` : `iw*0.45`;
+    const textX = barX + 12;
 
     filters.push(
-      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.75:t=fill[v_spk_bg]`
+      `${lastLabel}drawbox=x=${barX}:y=${barY}:w=${barW}:h=${barHeight}:color=${bgColor}@0.75:t=fill[v_spk_bg]`
     );
     lastLabel = "[v_spk_bg]";
 
@@ -536,7 +544,7 @@ async function buildTemplateOverlayFilters({
       const escaped = escapeDrawText(String(cf.speakerName));
       const nameY = `H-${barHeight}-25+10`;
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=20:y=${nameY}:fontfile=${boldFontPath}[v_spk_name]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=${textX}:y=${nameY}:fontfile=${boldFontPath}[v_spk_name]`
       );
       lastLabel = "[v_spk_name]";
     }
@@ -545,7 +553,7 @@ async function buildTemplateOverlayFilters({
       const escaped = escapeDrawText(String(cf.speakerTitle));
       const titleY = `H-${barHeight}-25+32`;
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.8:x=20:y=${titleY}:fontfile=${fontPath}[v_spk_title]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.8:x=${textX}:y=${titleY}:fontfile=${fontPath}[v_spk_title]`
       );
       lastLabel = "[v_spk_title]";
     }
@@ -697,18 +705,21 @@ async function buildTemplateOverlayFilters({
   const hasQuote = cf.quoteText || cf.quoteName || cf.quoteCompany;
   if (hasQuote) {
     const barHeight = 95;
-    const barY = `ih-${barHeight}`;
+    const barY = `ih-${barHeight}-10`;
+    const barX = 20;
+    const barW = `iw*0.7`;
+    const textX = barX + 12;
 
     filters.push(
-      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_quote_bg]`
+      `${lastLabel}drawbox=x=${barX}:y=${barY}:w=${barW}:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_quote_bg]`
     );
     lastLabel = "[v_quote_bg]";
 
     if (cf.quoteText) {
       const escaped = escapeDrawText(`"${String(cf.quoteText)}"`);
-      const quoteY = `H-${barHeight}+12`;
+      const quoteY = `H-${barHeight}-10+12`;
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=16:fontcolor=${fontColor}:x=20:y=${quoteY}:fontfile=${fontPath}[v_quote_txt]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=16:fontcolor=${fontColor}:x=${textX}:y=${quoteY}:fontfile=${fontPath}[v_quote_txt]`
       );
       lastLabel = "[v_quote_txt]";
     }
@@ -718,9 +729,9 @@ async function buildTemplateOverlayFilters({
     if (cf.quoteCompany) attrParts.push(String(cf.quoteCompany));
     if (attrParts.length > 0) {
       const escaped = escapeDrawText("â€” " + attrParts.join(", "));
-      const attrY = cf.quoteText ? `H-${barHeight}+50` : `H-${barHeight}+20`;
+      const attrY = cf.quoteText ? `H-${barHeight}-10+50` : `H-${barHeight}-10+20`;
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.8:x=20:y=${attrY}:fontfile=${boldFontPath}[v_quote_attr]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.8:x=${textX}:y=${attrY}:fontfile=${boldFontPath}[v_quote_attr]`
       );
       lastLabel = "[v_quote_attr]";
     }
