@@ -229,6 +229,11 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
     ? `<image xlink:href="${emojiDataUri}" x="${emojiX}" y="${emojiY}" width="${emojiSize}" height="${emojiSize}"/>`
     : "";
 
+  // Manual vertical centering: y = center + ~35% of fontSize (replaces
+  // dominant-baseline="central" which rsvg-convert does not support)
+  const textY = height / 2 + fontSize * 0.35;
+  const emojiCenterY = (height - emojiSize) / 2;
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${actualWidth}" height="${height}">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
@@ -238,7 +243,7 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
   </defs>
   <rect width="${actualWidth}" height="${height}" rx="${height / 2}" fill="url(#g)"/>
   ${emojiElement}
-  <text x="${textX}" y="${height / 2}" dominant-baseline="central" font-family="DejaVu Sans, sans-serif" font-size="${fontSize}" font-weight="600" fill="${fill}">${label.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</text>
+  <text x="${textX}" y="${textY}" font-family="DejaVu Sans, sans-serif" font-size="${fontSize}" font-weight="600" fill="${fill}">${label.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</text>
 </svg>`;
 
   const svgPath = outPath.replace(/\.png$/, ".svg");
@@ -1249,8 +1254,18 @@ export async function brandVideo({
     (mergedCustomFields.eventName || mergedCustomFields.eventDate || mergedCustomFields.eventLocation) &&
     logoPosition === "center" && hasLogo;
 
-  // Add logo overlay â€” unless the event countdown will integrate it inside its centered box
-  if (hasLogo && !eventCountdownWillHandleLogo) {
+  // Templates with bottom banners that would paint over the logo â€”
+  // defer logo overlay until AFTER the template drawbox filters so the
+  // logo sits on top of the banner instead of hiding behind it.
+  const bottomBannerTemplates = [
+    "vid-testimonial-overlay", "vid-lower-third",
+    "vid-contact-lower-third", "vid-customer-quote-card",
+  ];
+  const hasBottomBanner = hasCustomFields && bottomBannerTemplates.includes(templateFamilyId);
+  const deferLogo = hasLogo && !eventCountdownWillHandleLogo && hasBottomBanner;
+
+  // Add logo overlay now â€” unless deferred or handled by event countdown
+  if (hasLogo && !eventCountdownWillHandleLogo && !deferLogo) {
     inputs.push("-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo]`);
     filters.push(`${lastLabel}[logo]overlay=${overlayPos}[v_logo]`);
@@ -1316,6 +1331,16 @@ export async function brandVideo({
     inputIndex = result.inputIndex;
     if (result.cleanupPaths) extraCleanupPaths = result.cleanupPaths;
     if (result.skipFooter) skipFooter = true;
+  }
+
+  // â”€â”€ Deferred logo overlay (for bottom-banner templates) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Renders the logo ON TOP of the template banner so it's visible.
+  if (deferLogo) {
+    inputs.push("-i", logoPath);
+    filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo_def]`);
+    filters.push(`${lastLabel}[logo_def]overlay=${overlayPos}[v_logo_def]`);
+    lastLabel = "[v_logo_def]";
+    inputIndex++;
   }
 
   // â”€â”€ Footer with inline icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
