@@ -225,14 +225,14 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
   const emojiY = (height - emojiSize) / 2;
   const textX = padding + emojiWidth + (emojiDataUri ? emojiGap : 0);
 
+  // Add a drop shadow filter so emojis remain visible on same-color backgrounds
   const emojiElement = emojiDataUri
-    ? `<image xlink:href="${emojiDataUri}" x="${emojiX}" y="${emojiY}" width="${emojiSize}" height="${emojiSize}"/>`
+    ? `<image xlink:href="${emojiDataUri}" x="${emojiX}" y="${emojiY}" width="${emojiSize}" height="${emojiSize}" filter="url(#emojiShadow)"/>`
     : "";
 
   // Manual vertical centering: y = center + ~35% of fontSize (replaces
   // dominant-baseline="central" which rsvg-convert does not support)
   const textY = height / 2 + fontSize * 0.35;
-  const emojiCenterY = (height - emojiSize) / 2;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${actualWidth}" height="${height}">
   <defs>
@@ -240,6 +240,9 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
       <stop offset="0%" stop-color="${gradFrom}"/>
       <stop offset="100%" stop-color="${gradTo}"/>
     </linearGradient>
+    <filter id="emojiShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="rgba(0,0,0,0.4)"/>
+    </filter>
   </defs>
   <rect width="${actualWidth}" height="${height}" rx="${height / 2}" fill="url(#g)"/>
   ${emojiElement}
@@ -566,32 +569,48 @@ async function buildTemplateOverlayFilters({
     console.log(`[video.js] Speaker overlay: name=${cf.speakerName || "â€”"}, title=${cf.speakerTitle || "â€”"}`);
   }
 
-  // â”€â”€ Product Demo Banner (productName, productPrice) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â”€â”€ Product Demo Banner (productName, productPrice, website) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Persistent bottom banner showing product name (left), price (centre),
+  // and website URL (right).
   const hasProduct = cf.productName || cf.productPrice;
   if (hasProduct) {
     const barHeight = 48;
+    const barY = `ih-${barHeight}`;
     filters.push(
-      `${lastLabel}drawbox=x=0:y=0:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_prod_bg]`
+      `${lastLabel}drawbox=x=0:y=${barY}:w=iw:h=${barHeight}:color=${bgColor}@0.8:t=fill[v_prod_bg]`
     );
     lastLabel = "[v_prod_bg]";
 
     if (cf.productName) {
       const escaped = escapeDrawText(String(cf.productName));
+      const textY = `H-${barHeight}+14`;
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=20:y=14:fontfile=${boldFontPath}[v_prod_name]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=20:y=${textY}:fontfile=${boldFontPath}[v_prod_name]`
       );
       lastLabel = "[v_prod_name]";
     }
 
     if (cf.productPrice) {
       const escaped = escapeDrawText(String(cf.productPrice));
+      const textY = `H-${barHeight}+14`;
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=W-tw-20:y=14:fontfile=${boldFontPath}[v_prod_price]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=18:fontcolor=${fontColor}:x=(W-tw)/2:y=${textY}:fontfile=${boldFontPath}[v_prod_price]`
       );
       lastLabel = "[v_prod_price]";
     }
 
-    console.log(`[video.js] Product overlay: name=${cf.productName || "â€”"}, price=${cf.productPrice || "â€”"}`);
+    // Include website URL from contact info on the right side
+    const productWebsite = contact?.website;
+    if (productWebsite) {
+      const escaped = escapeDrawText(String(productWebsite));
+      const textY = `H-${barHeight}+16`;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}@0.9:x=W-tw-20:y=${textY}:fontfile=${fontPath}[v_prod_url]`
+      );
+      lastLabel = "[v_prod_url]";
+    }
+
+    console.log(`[video.js] Product overlay: name=${cf.productName || "â€”"}, price=${cf.productPrice || "â€”"}, website=${productWebsite || "â€”"}`);
   }
 
   // â”€â”€ Event Countdown â€” Centered Display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -754,26 +773,26 @@ async function buildTemplateOverlayFilters({
 
     if (cf.beforeLabel) {
       const escaped = escapeDrawText(String(cf.beforeLabel));
-      const pillY = `ih-50`;
+      const pillY = 15;
       filters.push(
         `${lastLabel}drawbox=x=10:y=${pillY}:w=120:h=30:color=${bgColor}@0.7:t=fill[v_split_lbg]`
       );
       lastLabel = "[v_split_lbg]";
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}:x=20:y=H-50+8:fontfile=${boldFontPath}[v_split_ltxt]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}:x=20:y=${pillY + 8}:fontfile=${boldFontPath}[v_split_ltxt]`
       );
       lastLabel = "[v_split_ltxt]";
     }
 
     if (cf.afterLabel) {
       const escaped = escapeDrawText(String(cf.afterLabel));
-      const pillY = `ih-50`;
+      const pillY = 15;
       filters.push(
         `${lastLabel}drawbox=x=iw-130:y=${pillY}:w=120:h=30:color=${bgColor}@0.7:t=fill[v_split_rbg]`
       );
       lastLabel = "[v_split_rbg]";
       filters.push(
-        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}:x=W-120:y=H-50+8:fontfile=${boldFontPath}[v_split_rtxt]`
+        `${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}:x=W-120:y=${pillY + 8}:fontfile=${boldFontPath}[v_split_rtxt]`
       );
       lastLabel = "[v_split_rtxt]";
     }
@@ -1249,6 +1268,48 @@ export async function brandVideo({
   let lastLabel = "[0:v]";
   let inputIndex = 1;
 
+  // â”€â”€ Social Clip â€” Branded Frame with Captions Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Wraps the video in a branded frame (padded border in brand color) with a
+  // dedicated captions strip at the bottom showing brand name and tagline.
+  if (templateFamilyId === "vid-social-clip") {
+    const probe = await probeVideo(inputPath);
+    const padSide = 30;
+    const padTop = 30;
+    const captionH = 90; // Height of the captions area at the bottom
+    const paddedW = probe.width + padSide * 2;
+    const paddedH = probe.height + padTop + captionH;
+    // Round to even numbers for codec compatibility
+    const finalW = paddedW % 2 === 0 ? paddedW : paddedW + 1;
+    const finalH = paddedH % 2 === 0 ? paddedH : paddedH + 1;
+
+    filters.push(
+      `${lastLabel}scale=${probe.width}:${probe.height},pad=${finalW}:${finalH}:${padSide}:${padTop}:color=${bgColor}[v_frame]`
+    );
+    lastLabel = "[v_frame]";
+
+    // Brand name in the captions area
+    if (brandName) {
+      const escaped = escapeDrawText(brandName);
+      const textY = probe.height + padTop + 18;
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=22:fontcolor=${fontColor}:x=(W-tw)/2:y=${textY}:fontfile=${boldFontPath}[v_sc_name]`
+      );
+      lastLabel = "[v_sc_name]";
+    }
+
+    // Tagline below brand name in captions area
+    if (tagline) {
+      const escaped = escapeDrawText(tagline);
+      const textY = probe.height + padTop + (brandName ? 50 : 25);
+      filters.push(
+        `${lastLabel}drawtext=text='${escaped}':fontsize=15:fontcolor=${fontColor}@0.85:x=(W-tw)/2:y=${textY}:fontfile=${fontPath}[v_sc_tag]`
+      );
+      lastLabel = "[v_sc_tag]";
+    }
+
+    console.log(`[video.js] Social Clip frame: ${probe.width}x${probe.height} â†’ ${finalW}x${finalH}, captions=${captionH}px`);
+  }
+
   // Pre-check: will the event countdown template handle the center logo itself?
   const eventCountdownWillHandleLogo = hasCustomFields &&
     (mergedCustomFields.eventName || mergedCustomFields.eventDate || mergedCustomFields.eventLocation) &&
@@ -1260,6 +1321,7 @@ export async function brandVideo({
   const bottomBannerTemplates = [
     "vid-testimonial-overlay", "vid-lower-third",
     "vid-contact-lower-third", "vid-customer-quote-card",
+    "vid-product-demo",
   ];
   const hasBottomBanner = hasCustomFields && bottomBannerTemplates.includes(templateFamilyId);
   const deferLogo = hasLogo && !eventCountdownWillHandleLogo && hasBottomBanner;
