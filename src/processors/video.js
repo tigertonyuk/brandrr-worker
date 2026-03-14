@@ -240,8 +240,9 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
       <stop offset="0%" stop-color="${gradFrom}"/>
       <stop offset="100%" stop-color="${gradTo}"/>
     </linearGradient>
-    <filter id="emojiShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="rgba(0,0,0,0.4)"/>
+    <filter id="emojiShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="rgba(0,0,0,0.55)"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="1" flood-color="rgba(0,0,0,0.35)"/>
     </filter>
   </defs>
   <rect width="${actualWidth}" height="${height}" rx="${height / 2}" fill="url(#g)"/>
