@@ -223,12 +223,69 @@ function relativeLuminance(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-function shouldAddEmojiBackdrop(gradientStops) {
+function rgbToHue([r, g, b]) {
+  const nr = r / 255;
+  const ng = g / 255;
+  const nb = b / 255;
+  const max = Math.max(nr, ng, nb);
+  const min = Math.min(nr, ng, nb);
+  const delta = max - min;
+
+  if (delta === 0) return 0;
+
+  let hue;
+  if (max === nr) {
+    hue = ((ng - nb) / delta) % 6;
+  } else if (max === ng) {
+    hue = (nb - nr) / delta + 2;
+  } else {
+    hue = (nr - ng) / delta + 4;
+  }
+
+  const degrees = hue * 60;
+  return degrees < 0 ? degrees + 360 : degrees;
+}
+
+function isWarmYellowTone(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return false;
+
+  const [r, g, b] = rgb;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const saturation = max === 0 ? 0 : (max - min) / max;
+  const value = max / 255;
+  const hue = rgbToHue(rgb);
+
+  return hue >= 28 && hue <= 68 && saturation >= 0.25 && value >= 0.4;
+}
+
+const LOW_CONTRAST_EMOJI = new Set([
+  "â­",
+  "ðŸŒŸ",
+  "âœ¨",
+  "ðŸ’¡",
+  "âš¡",
+  "ðŸ”¥",
+  "â˜€",
+  "ðŸŒž",
+  "ðŸŸ¡",
+  "ðŸ’›",
+]);
+
+function shouldAddEmojiBackdrop(gradientStops, emoji) {
   const luminances = (gradientStops || []).map(relativeLuminance).filter((v) => Number.isFinite(v));
   if (!luminances.length) return false;
+
   const maxLum = Math.max(...luminances);
   const avgLum = luminances.reduce((sum, lum) => sum + lum, 0) / luminances.length;
-  return avgLum >= 0.58 || maxLum >= 0.68;
+  const hasWarmGradient = (gradientStops || []).some(isWarmYellowTone);
+  const normalizedEmoji = String(emoji || "").replace(/\uFE0F/g, "");
+  const emojiIsWarm = LOW_CONTRAST_EMOJI.has(normalizedEmoji);
+
+  if (avgLum >= 0.56 || maxLum >= 0.66) return true;
+  if (hasWarmGradient && emojiIsWarm) return true;
+  return false;
 }
 
 async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, width = 200, height = 44 }) {
@@ -251,7 +308,7 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
   const emojiY = (height - emojiSize) / 2;
   const emojiCenterX = emojiX + emojiSize / 2;
   const emojiCenterY = height / 2;
-  const useEmojiBackdrop = shouldAddEmojiBackdrop([gradFrom, gradTo]);
+  const useEmojiBackdrop = shouldAddEmojiBackdrop([gradFrom, gradTo], emoji);
   const textX = padding + emojiWidth + (emojiDataUri ? emojiGap : 0);
 
   const emojiBackdropElement = emojiDataUri && useEmojiBackdrop
