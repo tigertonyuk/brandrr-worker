@@ -205,6 +205,32 @@ function parseTwGradient(bgColor) {
   return [from, to];
 }
 
+function hexToRgb(hex) {
+  const normalized = String(hex || "").replace("#", "");
+  if (normalized.length !== 6) return null;
+  const parsed = Number.parseInt(normalized, 16);
+  if (Number.isNaN(parsed)) return null;
+  return [(parsed >> 16) & 255, (parsed >> 8) & 255, parsed & 255];
+}
+
+function relativeLuminance(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0;
+  const [r, g, b] = rgb.map((channel) => {
+    const s = channel / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function shouldAddEmojiBackdrop(gradientStops) {
+  const luminances = (gradientStops || []).map(relativeLuminance).filter((v) => Number.isFinite(v));
+  if (!luminances.length) return false;
+  const maxLum = Math.max(...luminances);
+  const avgLum = luminances.reduce((sum, lum) => sum + lum, 0) / luminances.length;
+  return avgLum >= 0.58 || maxLum >= 0.68;
+}
+
 async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, width = 200, height = 44 }) {
   const [gradFrom, gradTo] = parseTwGradient(bgColor);
   const isWhite = !textColor || textColor.includes("white");
@@ -223,11 +249,17 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
 
   const emojiX = padding;
   const emojiY = (height - emojiSize) / 2;
+  const emojiCenterX = emojiX + emojiSize / 2;
+  const emojiCenterY = height / 2;
+  const useEmojiBackdrop = shouldAddEmojiBackdrop([gradFrom, gradTo]);
   const textX = padding + emojiWidth + (emojiDataUri ? emojiGap : 0);
 
-  // Add a drop shadow filter so emojis remain visible on same-color backgrounds
+  const emojiBackdropElement = emojiDataUri && useEmojiBackdrop
+    ? `<circle cx="${emojiCenterX}" cy="${emojiCenterY}" r="${emojiSize * 0.58}" fill="rgba(0,0,0,0.48)"/><circle cx="${emojiCenterX}" cy="${emojiCenterY}" r="${emojiSize * 0.4}" fill="rgba(255,255,255,0.16)"/>`
+    : "";
+
   const emojiElement = emojiDataUri
-    ? `<image xlink:href="${emojiDataUri}" x="${emojiX}" y="${emojiY}" width="${emojiSize}" height="${emojiSize}" filter="url(#emojiShadow)"/>`
+    ? `<g>${emojiBackdropElement}<image xlink:href="${emojiDataUri}" x="${emojiX}" y="${emojiY}" width="${emojiSize}" height="${emojiSize}" filter="url(#emojiShadow)"/></g>`
     : "";
 
   // Manual vertical centering: y = center + ~35% of fontSize (replaces
@@ -240,9 +272,10 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
       <stop offset="0%" stop-color="${gradFrom}"/>
       <stop offset="100%" stop-color="${gradTo}"/>
     </linearGradient>
-    <filter id="emojiShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="rgba(0,0,0,0.55)"/>
-      <feDropShadow dx="0" dy="0" stdDeviation="1" flood-color="rgba(0,0,0,0.35)"/>
+    <filter id="emojiShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.2" flood-color="rgba(0,0,0,0.65)"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="1.2" flood-color="rgba(0,0,0,0.45)"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="0.6" flood-color="rgba(255,255,255,0.18)"/>
     </filter>
   </defs>
   <rect width="${actualWidth}" height="${height}" rx="${height / 2}" fill="url(#g)"/>
