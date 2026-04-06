@@ -11,7 +11,7 @@ import { brandImage } from './processors/image.js';
 import { brandPdf } from './processors/pdf.js';
 import { probeFile } from './probe.js';
 import { uploadToS3 } from './s3.js';
-import { uploadToGDrive } from './gdrive.js';
+import { uploadToGoogleDrive } from './gdrive.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
