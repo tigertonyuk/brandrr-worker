@@ -1151,7 +1151,7 @@ async function handleConcatTemplate({
   logoSize, logoPosition, logoOpacity, logoTargetHeightPx, logoEnabled,
   brandName, primaryColor, tagline, contact, social, elements,
   fontFamily, stickers, stickerMeta,
-  copyrightText,
+  copyrightText, wrapper,
 }) {
   const tempDir = jobDir || path.dirname(outputPath);
   const info = probeVideoInfo(inputPath);
@@ -1250,6 +1250,138 @@ async function handleConcatTemplate({
   }
 }
 
+
+// --- Wrapper overlay builder -------------------------------------------------
+async function buildWrapperOverlayFilters({
+  wrapper, fontPath, boldFontPath, lastLabel, inputIndex, inputs, filters,
+  logoPath, logoEnabled, logoTargetHeight, logoOpacity,
+}) {
+  if (!wrapper || typeof wrapper !== "object") {
+    return { lastLabel, inputIndex, cleanupPaths: [] };
+  }
+
+  const els = wrapper.elements || {};
+  const colors = wrapper.colors || {};
+  const bgColor = hexToFFmpegColor(colors.primary || "#111111");
+  const secColor = hexToFFmpegColor(colors.secondary || "#FFFFFF");
+  const accentColor = hexToFFmpegColor(colors.accent || "#FFCC00");
+  const borderColor = hexToFFmpegColor(colors.border || "#111111");
+  const fontColor = secColor;
+  const cleanupPaths = [];
+  const headline = wrapper.headline || "";
+  const subheadline = wrapper.subheadline || "";
+  const cta = wrapper.cta || "";
+  const badgeText = wrapper.badge_text || "";
+  const website = wrapper.website || "";
+
+  console.log(`[video.js] Wrapper overlay: headline="${headline}", sub="${subheadline}", cta="${cta}", badge="${badgeText}"`);
+  console.log(`[video.js] Wrapper elements: ${JSON.stringify(els)}`);
+
+  if (els.background_overlay) {
+    filters.push(`${lastLabel}drawbox=x=0:y=0:w=iw:h=ih:color=${bgColor}@0.35:t=fill[v_wrap_bgov]`);
+    lastLabel = "[v_wrap_bgov]";
+  }
+
+  if (els.border) {
+    const bw = 4;
+    filters.push(`${lastLabel}drawbox=x=0:y=0:w=iw:h=${bw}:color=${borderColor}:t=fill[v_wrap_bt]`);
+    lastLabel = "[v_wrap_bt]";
+    filters.push(`${lastLabel}drawbox=x=0:y=ih-${bw}:w=iw:h=${bw}:color=${borderColor}:t=fill[v_wrap_bb]`);
+    lastLabel = "[v_wrap_bb]";
+    filters.push(`${lastLabel}drawbox=x=0:y=0:w=${bw}:h=ih:color=${borderColor}:t=fill[v_wrap_bl]`);
+    lastLabel = "[v_wrap_bl]";
+    filters.push(`${lastLabel}drawbox=x=iw-${bw}:y=0:w=${bw}:h=ih:color=${borderColor}:t=fill[v_wrap_br]`);
+    lastLabel = "[v_wrap_br]";
+  }
+
+  if (els.side_panel) {
+    const panelW = 180;
+    filters.push(`${lastLabel}drawbox=x=iw-${panelW}:y=0:w=${panelW}:h=ih:color=${bgColor}@0.85:t=fill[v_wrap_sp]`);
+    lastLabel = "[v_wrap_sp]";
+    if (headline) {
+      const escaped = escapeDrawText(headline);
+      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=16:fontcolor=${fontColor}:x=W-${panelW}+15:y=60:fontfile=${boldFontPath}[v_wrap_sph]`);
+      lastLabel = "[v_wrap_sph]";
+    }
+    if (subheadline) {
+      const escaped = escapeDrawText(subheadline);
+      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=12:fontcolor=${fontColor}@0.85:x=W-${panelW}+15:y=90:fontfile=${fontPath}[v_wrap_sps]`);
+      lastLabel = "[v_wrap_sps]";
+    }
+  }
+
+  if (els.top_bar) {
+    const barH = 52;
+    filters.push(`${lastLabel}drawbox=x=0:y=0:w=iw:h=${barH}:color=${bgColor}@0.9:t=fill[v_wrap_tb]`);
+    lastLabel = "[v_wrap_tb]";
+    if (headline) {
+      const escaped = escapeDrawText(headline);
+      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=20:fontcolor=${fontColor}:x=(W-tw)/2:y=8:fontfile=${boldFontPath}[v_wrap_tbh]`);
+      lastLabel = "[v_wrap_tbh]";
+    }
+    if (subheadline && !els.side_panel) {
+      const escaped = escapeDrawText(subheadline);
+      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.85:x=(W-tw)/2:y=32:fontfile=${fontPath}[v_wrap_tbs]`);
+      lastLabel = "[v_wrap_tbs]";
+    }
+  }
+
+  if (els.badge && badgeText) {
+    const bPadX = 12;
+    const bPadY = 4;
+    const bFontSize = 14;
+    const estimatedW = badgeText.length * bFontSize * 0.7 + bPadX * 2;
+    const bH = bFontSize + bPadY * 2 + 6;
+    const bX = 15;
+    const bY = els.top_bar ? 60 : 15;
+    filters.push(`${lastLabel}drawbox=x=${bX}:y=${bY}:w=${Math.round(estimatedW)}:h=${bH}:color=${accentColor}:t=fill[v_wrap_bdg_bg]`);
+    lastLabel = "[v_wrap_bdg_bg]";
+    const escaped = escapeDrawText(badgeText);
+    filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${bFontSize}:fontcolor=0x000000:x=${bX + bPadX}:y=${bY + bPadY + 2}:fontfile=${boldFontPath}[v_wrap_bdg_txt]`);
+    lastLabel = "[v_wrap_bdg_txt]";
+  }
+
+  if (els.logo && logoEnabled && logoPath) {
+    const lh = logoTargetHeight || 60;
+    inputs.push("-i", logoPath);
+    filters.push(`[${inputIndex}:v]scale=-1:${lh},format=rgba,colorchannelmixer=aa=${logoOpacity || 0.9}[wrap_logo]`);
+    const logoX = 15;
+    const logoY = els.top_bar ? `${52 + 8}` : "15";
+    filters.push(`${lastLabel}[wrap_logo]overlay=x=${logoX}:y=${logoY}[v_wrap_logo]`);
+    lastLabel = "[v_wrap_logo]";
+    inputIndex++;
+  }
+
+  if (els.bottom_bar) {
+    const barH = 48;
+    filters.push(`${lastLabel}drawbox=x=0:y=ih-${barH}:w=iw:h=${barH}:color=${bgColor}@0.9:t=fill[v_wrap_btm]`);
+    lastLabel = "[v_wrap_btm]";
+    if (website) {
+      const escaped = escapeDrawText(website);
+      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}@0.8:x=W-tw-20:y=H-${barH}+16:fontfile=${fontPath}[v_wrap_btm_web]`);
+      lastLabel = "[v_wrap_btm_web]";
+    }
+  }
+
+  if (els.footer_cta && cta) {
+    const ctaH = 36;
+    const ctaFontSize = 16;
+    const ctaPadX = 20;
+    const estimatedCtaW = cta.length * ctaFontSize * 0.65 + ctaPadX * 2;
+    const ctaX = els.bottom_bar ? 20 : `(iw-${Math.round(estimatedCtaW)})/2`;
+    const ctaY = els.bottom_bar ? `ih-${48}-${ctaH}-10` : `ih-${ctaH}-20`;
+    filters.push(`${lastLabel}drawbox=x=${ctaX}:y=${ctaY}:w=${Math.round(estimatedCtaW)}:h=${ctaH}:color=${accentColor}:t=fill[v_wrap_cta_bg]`);
+    lastLabel = "[v_wrap_cta_bg]";
+    const escaped = escapeDrawText(cta);
+    const textX = els.bottom_bar ? `20+${ctaPadX}` : `(W-${Math.round(estimatedCtaW)})/2+${ctaPadX}`;
+    const textY = els.bottom_bar ? `H-${48}-${ctaH}-10+9` : `H-${ctaH}-20+9`;
+    filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${ctaFontSize}:fontcolor=0x000000:x=${textX}:y=${textY}:fontfile=${boldFontPath}[v_wrap_cta_txt]`);
+    lastLabel = "[v_wrap_cta_txt]";
+  }
+
+  return { lastLabel, inputIndex, cleanupPaths };
+}
+
 // â”€â”€â”€ Main export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function brandVideo({
@@ -1263,6 +1395,7 @@ export async function brandVideo({
   // Template custom fields â€” nested objects
   templateCustomFields, template_custom_fields,
   // Root-level aliases the payload may carry
+  wrapper,
   reviewerName, reviewerTitle, starRating,
   speakerName, speakerTitle,
   productName, productPrice,
@@ -1312,7 +1445,7 @@ export async function brandVideo({
       logoSize, logoPosition, logoOpacity, logoTargetHeightPx, logoEnabled,
       brandName, primaryColor, tagline, contact, social, elements,
       fontFamily, stickers, stickerMeta,
-      copyrightText,
+      copyrightText, wrapper,
     });
   }
 
@@ -1369,7 +1502,7 @@ export async function brandVideo({
   // Wraps the video in a branded frame (padded border in brand color) with a
   // dedicated captions strip at the bottom showing brand name and tagline.
   if (templateFamilyId === "vid-social-clip") {
-    const probe = await probeVideo(inputPath);
+    const probe = probeVideoInfo(inputPath);
     const padSide = 30;
     const padTop = 30;
     const captionH = 90; // Height of the captions area at the bottom
@@ -1460,6 +1593,20 @@ export async function brandVideo({
 
   // â”€â”€ Template custom field overlays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   let extraCleanupPaths = [];
+
+  // -- Wrapper overlays (Video Wrapper Builder) --------------------------------
+  if (wrapper && typeof wrapper === "object" && wrapper.elements) {
+    const wrapResult = await buildWrapperOverlayFilters({
+      wrapper, fontPath, boldFontPath, lastLabel, inputIndex, inputs, filters,
+      logoPath: hasLogo ? logoPath : null,
+      logoEnabled, logoTargetHeight: targetHeight, logoOpacity,
+    });
+    lastLabel = wrapResult.lastLabel;
+    inputIndex = wrapResult.inputIndex;
+    if (wrapResult.cleanupPaths) extraCleanupPaths.push(...wrapResult.cleanupPaths);
+    console.log(`[video.js] Wrapper overlays applied`);
+  }
+
   let skipFooter = false;
   if (hasCustomFields) {
     const result = await buildTemplateOverlayFilters({
