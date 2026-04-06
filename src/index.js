@@ -6,9 +6,9 @@ import fetch from "node-fetch";
 import mime from "mime-types";
 
 import { verifyWorkerKey } from './auth.js';
-import { brandVideo } from './video.js';
-import { brandImage } from './image.js';
-import { brandPdf } from './pdf.js';
+import { brandVideo } from './processors/video.js';
+import { brandImage } from './processors/image.js';
+import { brandPdf } from './processors/pdf.js';
 import { probeFile } from './probe.js';
 import { uploadToS3 } from './s3.js';
 import { uploadToGDrive } from './gdrive.js';
