@@ -5,13 +5,13 @@ import fs from "fs/promises";
 import fetch from "node-fetch";
 import mime from "mime-types";
 
-import { requireWorkerAuth } from "../auth.js";
-import { ensureDir, downloadToFile } from "../utils.js";
-import { uploadOutput } from "../upload.js";
-import { probeFile } from "../probe.js";
-import { brandImage } from "../image.js";
-import { brandPdf } from "../pdf.js";
-import { brandVideo } from "./video.js";
+import { verifyWorkerKey } from './auth.js';
+import { brandVideo } from './video.js';
+import { brandImage } from './image.js';
+import { brandPdf } from './pdf.js';
+import { probeFile } from './probe.js';
+import { uploadToS3 } from './s3.js';
+import { uploadToGDrive } from './gdrive.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
