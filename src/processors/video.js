@@ -1274,13 +1274,6 @@ async function buildWrapperOverlayFilters({
   const badgeText = wrapper.badge_text || "";
   const website = wrapper.website || "";
 
-  // Override font if wrapper specifies its own font selection
-  if (wrapper.font && wrapper.font !== "default") {
-    fontPath = await resolveFont(wrapper.font, false);
-    boldFontPath = await resolveFont(wrapper.font, true);
-    console.log(`[video.js] Wrapper font override: slug=${wrapper.font}, regular=${fontPath}, bold=${boldFontPath}`);
-  }
-
   console.log(`[video.js] Wrapper overlay: headline="${headline}", sub="${subheadline}", cta="${cta}", badge="${badgeText}"`);
   console.log(`[video.js] Wrapper elements: ${JSON.stringify(els)}`);
 
