@@ -919,7 +919,7 @@ async function createTextSegment({
 
   if (logoPath) {
     const logoY = Math.round(height * 0.25 - logoTargetHeight / 2);
-    inputs.push("-i", logoPath);
+    inputs.push("-loop", "1", "-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${logoTargetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[seg_logo]`);
     filters.push(`${lastLabel}[seg_logo]overlay=(W-w)/2:${logoY}[v_seg_logo]`);
     lastLabel = "[v_seg_logo]";
@@ -993,7 +993,7 @@ async function createEndCardSegment({
   // Logo centered in upper area
   const logoY = Math.round(height * 0.08);
   if (logoPath) {
-    inputs.push("-i", logoPath);
+    inputs.push("-loop", "1", "-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${logoTargetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[ec_logo]`);
     filters.push(`${lastLabel}[ec_logo]overlay=(W-w)/2:${logoY}[v_ec_logo]`);
     lastLabel = "[v_ec_logo]";
@@ -1627,7 +1627,7 @@ export async function brandVideo({
 
     for (let i = 0; i < stickerPngs.length; i++) {
       const sticker = stickerPngs[i];
-      inputs.push("-i", sticker.path);
+      inputs.push("-loop", "1", "-i", sticker.path);
       const sLabel = `stk_${i}`;
       filters.push(`[${inputIndex}:v]format=rgba[${sLabel}]`);
       const outLabel = `v_stk_${i}`;
@@ -1673,7 +1673,7 @@ export async function brandVideo({
   // â”€â”€ Deferred logo overlay (for bottom-banner templates) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Renders the logo ON TOP of the template banner so it's visible.
   if (!hasWrapper && deferLogo) {
-    inputs.push("-i", logoPath);
+    inputs.push("-loop", "1", "-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo_def]`);
     filters.push(`${lastLabel}[logo_def]overlay=${overlayPos}[v_logo_def]`);
     lastLabel = "[v_logo_def]";
@@ -1736,7 +1736,7 @@ export async function brandVideo({
 
     for (const seg of segments) {
       if (seg.type === "icon") {
-        inputs.push("-i", seg.iconPath);
+        inputs.push("-loop", "1", "-i", seg.iconPath);
         const iconLabel = `icon_${seg.key}`;
         filters.push(`[${inputIndex}:v]scale=${iconSize}:${iconSize},format=rgba[${iconLabel}]`);
         const outLabel = `v_fi_${segIdx}`;
@@ -1793,7 +1793,10 @@ export async function brandVideo({
   for (const sticker of stickerPngs) {
     await fs.unlink(sticker.path).catch(() => {});
   }
-  for (const p of extraCleanupPaths) {
+  const cleanupPaths = typeof extraCleanupPaths !== "undefined" && Array.isArray(extraCleanupPaths)
+    ? extraCleanupPaths
+    : [];
+  for (const p of cleanupPaths) {
     await fs.unlink(p).catch(() => {});
   }
 }
