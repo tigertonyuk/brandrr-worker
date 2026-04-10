@@ -10,13 +10,12 @@ const LOGO_SIZE_MAP = {
   xlarge: 200,
 };
 
-// â”€â”€â”€ Font resolution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Font resolution ───────────────────────────────────────────────────────
 const GOOGLE_FONT_DIR = "/usr/share/fonts/google";
 const DEJAVU_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
 const DEJAVU_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
 
 const FONT_MAP = {
-  // System fonts â†’ visually similar Google Fonts installed on the worker
   default: DEJAVU_REGULAR,
   arial: DEJAVU_REGULAR,
   helvetica: DEJAVU_REGULAR,
@@ -31,8 +30,6 @@ const FONT_MAP = {
   garamond: `${GOOGLE_FONT_DIR}/cormorantgaramond/CormorantGaramond-Regular.ttf`,
   bookman: `${GOOGLE_FONT_DIR}/librebaskerville/LibreBaskerville-Regular.ttf`,
   "avant-garde": `${GOOGLE_FONT_DIR}/josefinsans/JosefinSans-Regular.ttf`,
-
-  // Google Fonts â€” direct paths
   roboto: `${GOOGLE_FONT_DIR}/roboto/Roboto-Regular.ttf`,
   "open-sans": `${GOOGLE_FONT_DIR}/opensans/OpenSans-Regular.ttf`,
   montserrat: `${GOOGLE_FONT_DIR}/montserrat/Montserrat-Regular.ttf`,
@@ -67,7 +64,6 @@ const FONT_MAP = {
 };
 
 const FONT_BOLD_MAP = {
-  // System fonts â†’ visually similar Google Font bold variants
   default: DEJAVU_BOLD,
   arial: DEJAVU_BOLD,
   helvetica: DEJAVU_BOLD,
@@ -82,8 +78,6 @@ const FONT_BOLD_MAP = {
   garamond: `${GOOGLE_FONT_DIR}/cormorantgaramond/CormorantGaramond-Regular.ttf`,
   bookman: `${GOOGLE_FONT_DIR}/librebaskerville/LibreBaskerville-Regular.ttf`,
   "avant-garde": `${GOOGLE_FONT_DIR}/josefinsans/JosefinSans-Regular.ttf`,
-
-  // Google Fonts â€” bold variants
   roboto: `${GOOGLE_FONT_DIR}/roboto/Roboto-Bold.ttf`,
   "open-sans": `${GOOGLE_FONT_DIR}/opensans/OpenSans-Bold.ttf`,
   montserrat: `${GOOGLE_FONT_DIR}/montserrat/Montserrat-Bold.ttf`,
@@ -137,7 +131,7 @@ async function resolveFont(slug, bold = false) {
   }
 }
 
-// â”€â”€â”€ Emoji support via Twemoji â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Emoji support via Twemoji ─────────────────────────────────────────────
 const TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72";
 
 async function getEmojiDataUri(emoji) {
@@ -158,7 +152,7 @@ async function getEmojiDataUri(emoji) {
         const res = await fetch(url);
         if (res.ok) {
           const buf = Buffer.from(await res.arrayBuffer());
-          console.log(`[video.js] Fetched Twemoji for "${emoji}" â†’ ${cp}.png`);
+          console.log(`[video.js] Fetched Twemoji for "${emoji}" → ${cp}.png`);
           return `data:image/png;base64,${buf.toString("base64")}`;
         }
       } catch { /* try next variant */ }
@@ -172,7 +166,7 @@ async function getEmojiDataUri(emoji) {
   }
 }
 
-// â”€â”€â”€ Sticker rendering â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Sticker rendering ─────────────────────────────────────────────────────
 
 const TW_COLOR_HEX = {
   "pink-500": "#ec4899", "pink-600": "#db2777",
@@ -230,18 +224,11 @@ function rgbToHue([r, g, b]) {
   const max = Math.max(nr, ng, nb);
   const min = Math.min(nr, ng, nb);
   const delta = max - min;
-
   if (delta === 0) return 0;
-
   let hue;
-  if (max === nr) {
-    hue = ((ng - nb) / delta) % 6;
-  } else if (max === ng) {
-    hue = (nb - nr) / delta + 2;
-  } else {
-    hue = (nr - ng) / delta + 4;
-  }
-
+  if (max === nr) hue = ((ng - nb) / delta) % 6;
+  else if (max === ng) hue = (nb - nr) / delta + 2;
+  else hue = (nr - ng) / delta + 4;
   const degrees = hue * 60;
   return degrees < 0 ? degrees + 360 : degrees;
 }
@@ -249,40 +236,25 @@ function rgbToHue([r, g, b]) {
 function isWarmYellowTone(hex) {
   const rgb = hexToRgb(hex);
   if (!rgb) return false;
-
   const [r, g, b] = rgb;
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   const saturation = max === 0 ? 0 : (max - min) / max;
   const value = max / 255;
   const hue = rgbToHue(rgb);
-
   return hue >= 28 && hue <= 68 && saturation >= 0.25 && value >= 0.4;
 }
 
-const LOW_CONTRAST_EMOJI = new Set([
-  "â­",
-  "ðŸŒŸ",
-  "âœ¨",
-  "ðŸ’¡",
-  "âš¡",
-  "ðŸ”¥",
-  "â˜€",
-  "ðŸŒž",
-  "ðŸŸ¡",
-  "ðŸ’›",
-]);
+const LOW_CONTRAST_EMOJI = new Set(["⭐","🌟","✨","💡","⚡","🔥","☀","🌞","🟡","💛"]);
 
 function shouldAddEmojiBackdrop(gradientStops, emoji) {
   const luminances = (gradientStops || []).map(relativeLuminance).filter((v) => Number.isFinite(v));
   if (!luminances.length) return false;
-
   const maxLum = Math.max(...luminances);
   const avgLum = luminances.reduce((sum, lum) => sum + lum, 0) / luminances.length;
   const hasWarmGradient = (gradientStops || []).some(isWarmYellowTone);
   const normalizedEmoji = String(emoji || "").replace(/\uFE0F/g, "");
   const emojiIsWarm = LOW_CONTRAST_EMOJI.has(normalizedEmoji);
-
   if (avgLum >= 0.56 || maxLum >= 0.66) return true;
   if (hasWarmGradient && emojiIsWarm) return true;
   return false;
@@ -296,7 +268,7 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
   const fontSize = label.length > 20 ? 11 : label.length > 14 ? 13 : 14;
   const textWidth = label.length * fontSize * 0.6;
   const padding = 24;
-  const emojiGap = 8; // explicit gap between emoji and text
+  const emojiGap = 8;
 
   const emojiDataUri = await getEmojiDataUri(emoji);
   const emojiSize = Math.round(height * 0.55);
@@ -319,8 +291,6 @@ async function renderStickerPng({ label, bgColor, textColor, emoji, outPath, wid
     ? `<g>${emojiBackdropElement}<image xlink:href="${emojiDataUri}" x="${emojiX}" y="${emojiY}" width="${emojiSize}" height="${emojiSize}" filter="url(#emojiShadow)"/></g>`
     : "";
 
-  // Manual vertical centering: y = center + ~35% of fontSize (replaces
-  // dominant-baseline="central" which rsvg-convert does not support)
   const textY = height / 2 + fontSize * 0.35;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${actualWidth}" height="${height}">
@@ -468,7 +438,7 @@ function extractHandle(url) {
   }
 }
 
-// â”€â”€â”€ Star rating SVG renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Star rating SVG renderer ──────────────────────────────────────────────
 
 async function renderStarRatingPng({ rating, max = 5, outPath, starSize = 18 }) {
   const gap = 3;
@@ -507,9 +477,7 @@ async function renderStarRatingPng({ rating, max = 5, outPath, starSize = 18 }) 
   }
 }
 
-// â”€â”€â”€ Video probe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Probes input video for dimensions, fps, and audio presence.
-// Falls back to 1920Ã—1080@30fps if ffprobe fails.
+// ─── Video probe ───────────────────────────────────────────────────────────
 
 function probeVideoInfo(inputPath) {
   try {
@@ -539,17 +507,12 @@ function probeVideoInfo(inputPath) {
   }
 }
 
-// â”€â”€â”€ Template custom fields overlay renderer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Appends FFmpeg drawtext / overlay filters for template-specific fields.
-//
-// IMPORTANT: drawbox uses "ih" for input height; drawtext uses "H" for video height.
+// ─── Template custom fields overlay renderer ───────────────────────────────
 
 async function buildTemplateOverlayFilters({
   templateCustomFields, bgColor, fontColor, fontPath, boldFontPath,
   tempDir, lastLabel, inputIndex, inputs, filters,
-  // Additional context for centered / grid templates
   hasFooterContent, templateFamilyId, contact, social, tagline,
-  // Logo context â€” needed for event countdown center-logo integration
   logoPath, logoPosition, logoTargetHeight, logoOpacity, logoEnabled,
 }) {
   if (!templateCustomFields || typeof templateCustomFields !== "object") {
@@ -561,7 +524,7 @@ async function buildTemplateOverlayFilters({
   let skipFooter = false;
   let skipLogo = false;
 
-  // â”€â”€ Testimonial Overlay (reviewerName, reviewerTitle, starRating) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Testimonial Overlay ──────────────────────────────────────────────────
   const hasTestimonial = cf.reviewerName || cf.reviewerTitle || cf.starRating;
   if (hasTestimonial) {
     const barHeight = 70;
@@ -600,12 +563,7 @@ async function buildTemplateOverlayFilters({
     if (cf.starRating && Number(cf.starRating) > 0) {
       const rating = Math.min(5, Math.max(0, Math.round(Number(cf.starRating))));
       const starPngPath = path.join(tempDir, "stars_rating.png");
-      const starResult = await renderStarRatingPng({
-        rating,
-        max: 5,
-        outPath: starPngPath,
-        starSize: 16,
-      });
+      const starResult = await renderStarRatingPng({ rating, max: 5, outPath: starPngPath, starSize: 16 });
       if (starResult) {
         inputs.push("-i", starResult.path);
         const starLabel = "star_rating";
@@ -620,16 +578,15 @@ async function buildTemplateOverlayFilters({
       }
     }
 
-    console.log(`[video.js] Testimonial overlay: name=${cf.reviewerName || "â€”"}, title=${cf.reviewerTitle || "â€”"}, stars=${cf.starRating || "â€”"}`);
+    console.log(`[video.js] Testimonial overlay: name=${cf.reviewerName || "—"}, title=${cf.reviewerTitle || "—"}, stars=${cf.starRating || "—"}`);
   }
 
-  // â”€â”€ Lower Third / Speaker Bar (speakerName, speakerTitle) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Lower Third / Speaker Bar ────────────────────────────────────────────
   const hasSpeaker = cf.speakerName || cf.speakerTitle;
   if (hasSpeaker && !hasTestimonial) {
     const barHeight = 56;
     const barY = `ih-${barHeight}-25`;
     const barX = 20;
-    // Contact Lower Third uses 55% width; standard Lower Third uses 45%
     const isContactLT = templateFamilyId === "vid-contact-lower-third";
     const barW = isContactLT ? `iw*0.55` : `iw*0.45`;
     const textX = barX + 12;
@@ -657,12 +614,10 @@ async function buildTemplateOverlayFilters({
       lastLabel = "[v_spk_title]";
     }
 
-    console.log(`[video.js] Speaker overlay: name=${cf.speakerName || "â€”"}, title=${cf.speakerTitle || "â€”"}`);
+    console.log(`[video.js] Speaker overlay: name=${cf.speakerName || "—"}, title=${cf.speakerTitle || "—"}`);
   }
 
-  // â”€â”€ Product Demo Banner (productName, productPrice, website) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Persistent bottom banner showing product name (left), price (centre),
-  // and website URL (right).
+  // ── Product Demo Banner ──────────────────────────────────────────────────
   const hasProduct = cf.productName || cf.productPrice;
   if (hasProduct) {
     const barHeight = 48;
@@ -690,7 +645,6 @@ async function buildTemplateOverlayFilters({
       lastLabel = "[v_prod_price]";
     }
 
-    // Include website URL from contact info on the right side
     const productWebsite = contact?.website;
     if (productWebsite) {
       const escaped = escapeDrawText(String(productWebsite));
@@ -701,16 +655,10 @@ async function buildTemplateOverlayFilters({
       lastLabel = "[v_prod_url]";
     }
 
-    console.log(`[video.js] Product overlay: name=${cf.productName || "â€”"}, price=${cf.productPrice || "â€”"}, website=${productWebsite || "â€”"}`);
+    console.log(`[video.js] Product overlay: name=${cf.productName || "—"}, price=${cf.productPrice || "—"}, website=${productWebsite || "—"}`);
   }
 
-  // â”€â”€ Event Countdown â€” Centered Display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Renders event details (name, date, location) inside a centered semi-
-  // transparent box.  Brand kit info (contact, social, tagline) is shown in
-  // the normal footer bar below â€” NOT duplicated inside the box.
-  // If the logo is positioned at "center", it is rendered inside the box
-  // (above the text) and the normal logo overlay is skipped to prevent it
-  // from being hidden behind the drawbox fill.
+  // ── Event Countdown – Centered Display ───────────────────────────────────
   const hasEvent = cf.eventName || cf.eventDate || cf.eventLocation;
   if (hasEvent) {
     const isCenterLogo = logoEnabled && logoPath && logoPosition === "center";
@@ -721,7 +669,7 @@ async function buildTemplateOverlayFilters({
     const dateParts = [];
     if (cf.eventDate) dateParts.push(String(cf.eventDate));
     if (cf.eventLocation) dateParts.push(String(cf.eventLocation));
-    if (dateParts.length > 0) contentLines.push({ text: dateParts.join("  \u2022  "), fontSize: 16, bold: false, opacity: 0.9 });
+    if (dateParts.length > 0) contentLines.push({ text: dateParts.join("  •  "), fontSize: 16, bold: false, opacity: 0.9 });
 
     const lineSpacing = 32;
     const boxPadding = 25;
@@ -734,7 +682,6 @@ async function buildTemplateOverlayFilters({
     );
     lastLabel = "[v_ec_bg]";
 
-    // If logo is center, overlay it inside the box at the top
     if (isCenterLogo) {
       const th = logoTargetHeight || 100;
       inputs.push("-loop", "1", "-i", logoPath);
@@ -743,7 +690,7 @@ async function buildTemplateOverlayFilters({
       filters.push(`${lastLabel}[ec_clogo]overlay=x=(W-w)/2:y=${logoY}[v_ec_clogo]`);
       lastLabel = "[v_ec_clogo]";
       inputIndex++;
-      skipLogo = true; // Tell brandVideo to skip the normal center logo overlay
+      skipLogo = true;
     }
 
     let yOffset = boxPadding + logoAreaHeight;
@@ -761,12 +708,10 @@ async function buildTemplateOverlayFilters({
       yOffset += lineSpacing;
     }
 
-    // Footer still renders normally â€” brand kit info appears there
     console.log(`[video.js] Event countdown centered: ${contentLines.length} lines, centerLogo=${isCenterLogo}`);
   }
 
-  // â”€â”€ Hiring / Announcement Bar (announcementText) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // FIXED: Positioned above the footer bar when footer content exists.
+  // ── Hiring / Announcement Bar ────────────────────────────────────────────
   if (cf.announcementText) {
     const barHeight = 40;
     const footerOffset = hasFooterContent ? 36 : 0;
@@ -784,7 +729,7 @@ async function buildTemplateOverlayFilters({
     console.log(`[video.js] Announcement overlay: text=${cf.announcementText}, footerOffset=${footerOffset}`);
   }
 
-  // â”€â”€ Chapter Marker (chapterTitle, chapterNumber) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Chapter Marker ───────────────────────────────────────────────────────
   const hasChapter = cf.chapterTitle || cf.chapterNumber;
   if (hasChapter) {
     const barHeight = 60;
@@ -813,10 +758,10 @@ async function buildTemplateOverlayFilters({
       lastLabel = "[v_chap_title]";
     }
 
-    console.log(`[video.js] Chapter marker overlay: number=${cf.chapterNumber || "â€”"}, title=${cf.chapterTitle || "â€”"}`);
+    console.log(`[video.js] Chapter marker overlay: number=${cf.chapterNumber || "—"}, title=${cf.chapterTitle || "—"}`);
   }
 
-  // â”€â”€ Customer Quote Card (quoteText, quoteName, quoteCompany) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Customer Quote Card ──────────────────────────────────────────────────
   const hasQuote = cf.quoteText || cf.quoteName || cf.quoteCompany;
   if (hasQuote) {
     const barHeight = 95;
@@ -843,7 +788,7 @@ async function buildTemplateOverlayFilters({
     if (cf.quoteName) attrParts.push(String(cf.quoteName));
     if (cf.quoteCompany) attrParts.push(String(cf.quoteCompany));
     if (attrParts.length > 0) {
-      const escaped = escapeDrawText("â€” " + attrParts.join(", "));
+      const escaped = escapeDrawText("— " + attrParts.join(", "));
       const attrY = cf.quoteText ? `H-${barHeight}-10+50` : `H-${barHeight}-10+20`;
       filters.push(
         `${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.8:x=${textX}:y=${attrY}:fontfile=${boldFontPath}[v_quote_attr]`
@@ -851,10 +796,10 @@ async function buildTemplateOverlayFilters({
       lastLabel = "[v_quote_attr]";
     }
 
-    console.log(`[video.js] Quote card overlay: text=${cf.quoteText ? cf.quoteText.slice(0, 40) + "â€¦" : "â€”"}, name=${cf.quoteName || "â€”"}, company=${cf.quoteCompany || "â€”"}`);
+    console.log(`[video.js] Quote card overlay: text=${cf.quoteText ? cf.quoteText.slice(0, 40) + "…" : "—"}, name=${cf.quoteName || "—"}, company=${cf.quoteCompany || "—"}`);
   }
 
-  // â”€â”€ Split-Screen Compare (beforeLabel, afterLabel) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Split-Screen Compare ─────────────────────────────────────────────────
   const hasSplit = cf.beforeLabel || cf.afterLabel;
   if (hasSplit) {
     filters.push(
@@ -888,21 +833,14 @@ async function buildTemplateOverlayFilters({
       lastLabel = "[v_split_rtxt]";
     }
 
-    console.log(`[video.js] Split-screen overlay: before=${cf.beforeLabel || "â€”"}, after=${cf.afterLabel || "â€”"}`);
+    console.log(`[video.js] Split-screen overlay: before=${cf.beforeLabel || "—"}, after=${cf.afterLabel || "—"}`);
   }
 
   return { lastLabel, inputIndex, cleanupPaths, skipFooter, skipLogo };
 }
 
-// â”€â”€â”€ Concat-based template helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Used by End Card CTA and Intro/Outro Bumper which generate separate video
-// segments (solid-color backgrounds with branding) and concatenate them with
-// the main branded video.
+// ─── Concat-based template helpers ─────────────────────────────────────────
 
-/**
- * Create a simple video segment with centered logo and text lines on a
- * solid-color background. Used for intro and outro bumper segments.
- */
 async function createTextSegment({
   outputPath, width, height, fps, duration,
   bgColor, fontColor, regularFont, boldFont,
@@ -956,7 +894,6 @@ async function createTextSegment({
     console.log(`[video.js] Creating text segment: ${width}x${height}@${fps}fps, ${duration}s, ${lines.length} lines`);
     await run("ffmpeg", args);
   } else {
-    // No overlays â€” just create a silent color segment
     const args = [
       "-y",
       "-f", "lavfi", "-i", `color=c=${bgColor}:s=${width}x${height}:d=${duration}:r=${fps},format=yuv420p`,
@@ -969,10 +906,6 @@ async function createTextSegment({
   }
 }
 
-/**
- * Create an end card segment with logo, brand name, tagline, and a
- * 2-column grid of contact info + social handles (with icons).
- */
 async function createEndCardSegment({
   outputPath, width, height, fps, duration,
   bgColor, fontColor, regularFont, boldFont,
@@ -990,7 +923,6 @@ async function createEndCardSegment({
   let labelIdx = 0;
   const cleanupPaths = [];
 
-  // Logo centered in upper area
   const logoY = Math.round(height * 0.08);
   if (logoPath) {
     inputs.push("-loop", "1", "-i", logoPath);
@@ -1002,7 +934,6 @@ async function createEndCardSegment({
 
   let yPos = logoPath ? logoY + logoTargetHeight + 20 : Math.round(height * 0.15);
 
-  // Brand name
   if (brandName) {
     const escaped = escapeDrawText(brandName);
     const label = `v_ec_t${labelIdx++}`;
@@ -1011,7 +942,6 @@ async function createEndCardSegment({
     yPos += 40;
   }
 
-  // Tagline
   if (tagline) {
     const escaped = escapeDrawText(tagline);
     const label = `v_ec_t${labelIdx++}`;
@@ -1020,7 +950,6 @@ async function createEndCardSegment({
     yPos += 35;
   }
 
-  // Build grid entries: [{key, svg, label}]
   const gridEntries = [];
   if (contact?.website) gridEntries.push({ key: "ec_website", svg: CONTACT_ICON_SVGS.website, label: contact.website });
   if (contact?.phone)   gridEntries.push({ key: "ec_phone",   svg: CONTACT_ICON_SVGS.phone,   label: contact.phone });
@@ -1036,7 +965,6 @@ async function createEndCardSegment({
     }
   }
 
-  // Divider line before grid
   if (gridEntries.length > 0) {
     yPos += 10;
     const divW = Math.round(width * 0.5);
@@ -1046,7 +974,6 @@ async function createEndCardSegment({
     yPos += 25;
   }
 
-  // Render grid: 2-column layout with icons
   const leftX = Math.round(width * 0.12);
   const rightX = Math.round(width * 0.55);
   const rowHeight = 36;
@@ -1057,12 +984,10 @@ async function createEndCardSegment({
     const col = i % 2;
     const x = col === 0 ? leftX : rightX;
 
-    // Render icon PNG
     const iconPath = path.join(tempDir, `${entry.key}_icon.png`);
     await svgToPng(entry.svg, iconPath, iconSize);
     cleanupPaths.push(iconPath);
 
-    // Overlay icon
     inputs.push("-i", iconPath);
     const iconLabel = `ec_ic_${i}`;
     filters.push(`[${inputIndex}:v]scale=${iconSize}:${iconSize},format=rgba[${iconLabel}]`);
@@ -1072,7 +997,6 @@ async function createEndCardSegment({
     lastLabel = `[${iconOut}]`;
     inputIndex++;
 
-    // Draw text label next to icon
     const escaped = escapeDrawText(entry.label);
     const textLabel = `v_ec_gt${labelIdx++}`;
     const textX = x + iconSize + iconTextGap;
@@ -1080,13 +1004,11 @@ async function createEndCardSegment({
     filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=15:fontcolor=${fontColor}@0.85:x=${textX}:y=${textY}:fontfile=${regularFont}[${textLabel}]`);
     lastLabel = `[${textLabel}]`;
 
-    // Advance row after right column or last entry
     if (col === 1 || i === gridEntries.length - 1) {
       yPos += rowHeight;
     }
   }
 
-  // Build and run FFmpeg
   if (filters.length > 0) {
     const finalLabel = lastLabel.replace("[", "").replace("]", "");
     filters.push(`[${finalLabel}]setpts=PTS-STARTPTS[v_out]`);
@@ -1113,22 +1035,17 @@ async function createEndCardSegment({
     await run("ffmpeg", args);
   }
 
-  // Cleanup temp icon PNGs
   for (const p of cleanupPaths) {
     await fs.unlink(p).catch(() => {});
   }
 }
 
-/**
- * Concatenate video segments using the FFmpeg concat demuxer.
- * Re-encodes to ensure codec compatibility across all segments.
- */
 async function concatSegments(segmentPaths, outputPath, tempDir) {
   const listPath = path.join(tempDir, "concat_list.txt");
   const listContent = segmentPaths.map(p => `file '${p}'`).join("\n");
   await fs.writeFile(listPath, listContent, "utf-8");
 
-  console.log(`[video.js] Concatenating ${segmentPaths.length} segments â†’ ${outputPath}`);
+  console.log(`[video.js] Concatenating ${segmentPaths.length} segments → ${outputPath}`);
   await run("ffmpeg", [
     "-y", "-f", "concat", "-safe", "0", "-i", listPath,
     "-c:v", "libx264", "-preset", "fast", "-crf", "23",
@@ -1139,19 +1056,13 @@ async function concatSegments(segmentPaths, outputPath, tempDir) {
   await fs.unlink(listPath).catch(() => {});
 }
 
-/**
- * Handle concat-based templates (End Card CTA, Intro/Outro Bumper).
- * 1. Brands the main video with standard overlays (logo, header, footer, stickers).
- * 2. Creates branded segment(s) on solid-color backgrounds.
- * 3. Concatenates everything into the final output.
- */
 async function handleConcatTemplate({
   inputPath, logoPath, outputPath, jobDir,
   templateFamilyId, mergedCustomFields,
   logoSize, logoPosition, logoOpacity, logoTargetHeightPx, logoEnabled,
   brandName, primaryColor, tagline, contact, social, elements,
   fontFamily, stickers, stickerMeta,
-  copyrightText, wrapper,
+  copyrightText,
 }) {
   const tempDir = jobDir || path.dirname(outputPath);
   const info = probeVideoInfo(inputPath);
@@ -1165,7 +1076,7 @@ async function handleConcatTemplate({
 
   console.log(`[video.js] Concat template: ${templateFamilyId}, video=${width}x${height}@${fps}fps`);
 
-  // 1. Brand the main video (standard overlays only â€” no concat recursion)
+  // 1. Brand the main video (standard overlays only — no concat recursion)
   const brandedMainPath = path.join(tempDir, "branded_main.mp4");
   await brandVideo({
     inputPath, logoPath, outputPath: brandedMainPath, jobDir,
@@ -1179,10 +1090,7 @@ async function handleConcatTemplate({
   const segmentPaths = [];
   const cleanupPaths = [brandedMainPath];
 
-  // 2. Create segments based on template type
   if (templateFamilyId === "vid-intro-outro") {
-    // â”€â”€ Intro segment (3s) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Shows: brand name, tagline, and any custom intro text
     const introLines = [];
     if (brandName) introLines.push({ text: brandName, fontSize: 28, bold: true });
     if (tagline) introLines.push({ text: tagline, fontSize: 20, bold: false, opacity: 0.9 });
@@ -1200,12 +1108,8 @@ async function handleConcatTemplate({
     segmentPaths.push(introPath);
     cleanupPaths.push(introPath);
 
-    // â”€â”€ Main video â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     segmentPaths.push(brandedMainPath);
 
-    // â”€â”€ Outro segment (5s) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Shows: logo, brand name, tagline, contact info, and social handles
-    // Uses the full end-card layout for a professional closing screen.
     const outroPath = path.join(tempDir, "segment_outro.mp4");
     await createEndCardSegment({
       outputPath: outroPath, width, height, fps, duration: 5,
@@ -1222,10 +1126,8 @@ async function handleConcatTemplate({
   }
 
   else if (templateFamilyId === "vid-end-card") {
-    // â”€â”€ Main video first â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     segmentPaths.push(brandedMainPath);
 
-    // â”€â”€ End card segment (10s) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const endCardPath = path.join(tempDir, "segment_endcard.mp4");
     await createEndCardSegment({
       outputPath: endCardPath, width, height, fps, duration: 10,
@@ -1241,177 +1143,16 @@ async function handleConcatTemplate({
     console.log(`[video.js] End Card CTA: 10s card with grid layout`);
   }
 
-  // 3. Concat all segments
   await concatSegments(segmentPaths, outputPath, tempDir);
 
-  // 4. Cleanup temp files
   for (const p of cleanupPaths) {
     await fs.unlink(p).catch(() => {});
   }
 }
 
-
-// --- Wrapper overlay builder -------------------------------------------------
-async function buildWrapperOverlayFilters({
-  inputPath, wrapper, fontPath, boldFontPath, lastLabel, inputIndex, inputs, filters,
-  logoPath, logoEnabled, logoTargetHeight, logoOpacity,
-}) {
-  if (!wrapper || typeof wrapper !== "object") {
-    return { lastLabel, inputIndex, cleanupPaths: [] };
-  }
-
-  const els = wrapper.elements || {};
-  const colors = wrapper.colors || {};
-  const bgColor = hexToFFmpegColor(colors.primary || "#111111");
-  const secColor = hexToFFmpegColor(colors.secondary || "#FFFFFF");
-  const accentColor = hexToFFmpegColor(colors.accent || "#FFCC00");
-  const borderColor = hexToFFmpegColor(colors.border || "#111111");
-  const fontColor = secColor;
-  const cleanupPaths = [];
-  const headline = wrapper.headline || "";
-  const subheadline = wrapper.subheadline || "";
-  const cta = wrapper.cta || "";
-  const badgeText = wrapper.badge_text || "";
-  const website = wrapper.website || "";
-  const phone = wrapper.phone || "";
-  const fontScaleRaw = Number(wrapper.font_size ?? 100);
-  const fontScale = Number.isFinite(fontScaleRaw)
-    ? Math.max(0.5, Math.min(2, fontScaleRaw / 100))
-    : 1;
-  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-
-  const probe = probeVideoInfo(inputPath);
-  const sourceWidth = probe.width;
-  const sourceHeight = probe.height;
-
-  const borderW = els.border ? Math.max(4, Math.round(sourceWidth * 0.015)) : 0;
-  const topBarH = els.top_bar ? Math.max(36, Math.round(sourceHeight * 0.08)) : 0;
-  const bottomBarH = els.bottom_bar ? Math.max(36, Math.round(sourceHeight * 0.08)) : 0;
-  const footerCtaH = els.footer_cta ? Math.max(28, Math.round(sourceHeight * 0.06)) : 0;
-  const sidePanelW = els.side_panel ? Math.round(sourceWidth * 0.22) : 0;
-
-  const canvasW = sourceWidth + borderW * 2 + sidePanelW;
-  const canvasH = sourceHeight + borderW * 2 + topBarH + bottomBarH + footerCtaH;
-  const imgX = borderW;
-  const imgY = borderW + topBarH;
-  const contentW = canvasW - borderW * 2;
-  const baseFillColor = els.border ? borderColor : bgColor;
-
-  console.log(`[video.js] Wrapper overlay: headline="${headline}", sub="${subheadline}", cta="${cta}", badge="${badgeText}"`);
-  console.log(`[video.js] Wrapper elements: ${JSON.stringify(els)}`);
-  console.log(`[video.js] Wrapper geometry: ${sourceWidth}x${sourceHeight} → ${canvasW}x${canvasH}, border=${borderW}, top=${topBarH}, bottom=${bottomBarH}, cta=${footerCtaH}, side=${sidePanelW}`);
-
-  if (canvasW !== sourceWidth || canvasH !== sourceHeight) {
-    filters.push(`${lastLabel}pad=${canvasW}:${canvasH}:${imgX}:${imgY}:color=${baseFillColor}[v_wrap_canvas]`);
-    lastLabel = "[v_wrap_canvas]";
-  }
-
-  if (els.background_overlay) {
-    filters.push(`${lastLabel}drawbox=x=${imgX}:y=${imgY}:w=${sourceWidth}:h=${sourceHeight}:color=${bgColor}@0.35:t=fill[v_wrap_bgov]`);
-    lastLabel = "[v_wrap_bgov]";
-  }
-
-  if (els.side_panel) {
-    const panelX = canvasW - borderW - sidePanelW;
-    const panelY = imgY;
-    filters.push(`${lastLabel}drawbox=x=${panelX}:y=${panelY}:w=${sidePanelW}:h=${sourceHeight}:color=${bgColor}:t=fill[v_wrap_sp]`);
-    lastLabel = "[v_wrap_sp]";
-    if (subheadline) {
-      const escaped = escapeDrawText(subheadline);
-      const fontSize = clamp(Math.round(sidePanelW * 0.12 * fontScale), 8, 72);
-      const textX = `${panelX}+(${sidePanelW}-tw)/2`;
-      const textY = `${panelY}+(${sourceHeight}-${fontSize})/2`;
-      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${textX}:y=${textY}:fontfile=${boldFontPath}[v_wrap_sps]`);
-      lastLabel = "[v_wrap_sps]";
-    }
-  }
-
-  if (els.top_bar) {
-    const barY = borderW;
-    filters.push(`${lastLabel}drawbox=x=${borderW}:y=${barY}:w=${contentW}:h=${topBarH}:color=${bgColor}:t=fill[v_wrap_tb]`);
-    lastLabel = "[v_wrap_tb]";
-    if (headline) {
-      const escaped = escapeDrawText(headline);
-      const fontSize = clamp(Math.round(topBarH * 0.55 * fontScale), 10, 144);
-      const textX = `${borderW}+(${contentW}-tw)/2`;
-      const textY = barY + Math.round((topBarH - fontSize) / 2);
-      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${textX}:y=${textY}:fontfile=${boldFontPath}[v_wrap_tbh]`);
-      lastLabel = "[v_wrap_tbh]";
-    }
-  }
-
-  if (els.badge && badgeText) {
-    const badgeH = Math.max(32, Math.round(Math.min(sourceWidth, sourceHeight) * 0.07));
-    const badgeFontSize = clamp(Math.round(badgeH * 0.3 * fontScale), 8, 56);
-    const badgePadX = 12;
-    const badgeW = Math.max(badgeH, Math.round(badgeText.length * badgeFontSize * 0.72 + badgePadX * 2));
-    const badgeX = canvasW - borderW - sidePanelW - badgeW - 8;
-    const badgeY = imgY + 8;
-    filters.push(`${lastLabel}drawbox=x=${badgeX}:y=${badgeY}:w=${badgeW}:h=${badgeH}:color=${accentColor}:t=fill[v_wrap_bdg_bg]`);
-    lastLabel = "[v_wrap_bdg_bg]";
-    const escaped = escapeDrawText(badgeText);
-    const textX = `${badgeX}+(${badgeW}-tw)/2`;
-    const textY = badgeY + Math.round((badgeH - badgeFontSize) / 2);
-    filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${badgeFontSize}:fontcolor=${bgColor}:x=${textX}:y=${textY}:fontfile=${boldFontPath}[v_wrap_bdg_txt]`);
-    lastLabel = "[v_wrap_bdg_txt]";
-  }
-
-  if (els.logo && logoEnabled && logoPath) {
-    const lh = logoTargetHeight || 60;
-    inputs.push("-loop", "1", "-i", logoPath);
-    filters.push(`[${inputIndex}:v]scale=-1:${lh},format=rgba,colorchannelmixer=aa=${logoOpacity || 0.9}[wrap_logo]`);
-    const logoX = imgX + 10;
-    const logoY = imgY + 10;
-    filters.push(`${lastLabel}[wrap_logo]overlay=x=${logoX}:y=${logoY}[v_wrap_logo]`);
-    lastLabel = "[v_wrap_logo]";
-    inputIndex++;
-  }
-
-  if (els.bottom_bar) {
-    const barY = canvasH - borderW - footerCtaH - bottomBarH;
-    filters.push(`${lastLabel}drawbox=x=${borderW}:y=${barY}:w=${contentW}:h=${bottomBarH}:color=${bgColor}:t=fill[v_wrap_btm]`);
-    lastLabel = "[v_wrap_btm]";
-    if (subheadline) {
-      const escaped = escapeDrawText(subheadline);
-      const fontSize = clamp(Math.round(bottomBarH * 0.45 * fontScale), 8, 96);
-      const textX = `${borderW}+(${contentW}-tw)/2`;
-      const textY = barY + Math.round((bottomBarH - fontSize) / 2);
-      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${textX}:y=${textY}:fontfile=${fontPath}[v_wrap_btm_txt]`);
-      lastLabel = "[v_wrap_btm_txt]";
-    }
-  }
-
-  if (els.footer_cta) {
-    const footerY = canvasH - borderW - footerCtaH;
-    filters.push(`${lastLabel}drawbox=x=${borderW}:y=${footerY}:w=${contentW}:h=${footerCtaH}:color=${accentColor}:t=fill[v_wrap_cta_bg]`);
-    lastLabel = "[v_wrap_cta_bg]";
-
-    const footerText = [cta, website, phone].filter(Boolean).join("  •  ");
-    if (footerText) {
-      const escaped = escapeDrawText(footerText);
-      const fontSize = clamp(Math.round(footerCtaH * 0.5 * fontScale), 8, 72);
-      const textX = `${borderW}+(${contentW}-tw)/2`;
-      const textY = footerY + Math.round((footerCtaH - fontSize) / 2);
-      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${fontSize}:fontcolor=${bgColor}:x=${textX}:y=${textY}:fontfile=${boldFontPath}[v_wrap_cta_txt]`);
-      lastLabel = "[v_wrap_cta_txt]";
-    }
-  }
-
-  if (els.border && borderW > 0) {
-    filters.push(`${lastLabel}drawbox=x=0:y=0:w=${canvasW}:h=${borderW}:color=${borderColor}:t=fill[v_wrap_bt]`);
-    lastLabel = "[v_wrap_bt]";
-    filters.push(`${lastLabel}drawbox=x=0:y=${canvasH - borderW}:w=${canvasW}:h=${borderW}:color=${borderColor}:t=fill[v_wrap_bb]`);
-    lastLabel = "[v_wrap_bb]";
-    filters.push(`${lastLabel}drawbox=x=0:y=0:w=${borderW}:h=${canvasH}:color=${borderColor}:t=fill[v_wrap_bl]`);
-    lastLabel = "[v_wrap_bl]";
-    filters.push(`${lastLabel}drawbox=x=${canvasW - borderW}:y=0:w=${borderW}:h=${canvasH}:color=${borderColor}:t=fill[v_wrap_br]`);
-    lastLabel = "[v_wrap_br]";
-  }
-
-  return { lastLabel, inputIndex, cleanupPaths };
-}
-
-// â”€â”€â”€ Main export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main export ───────────────────────────────────────────────────────────
+// STANDARD VIDEO BRANDING ONLY — NO WRAPPER LOGIC
+// Wrapper jobs are handled by video-wrapper.js
 
 export async function brandVideo({
   inputPath, logoPath, outputPath, jobDir,
@@ -1419,12 +1160,8 @@ export async function brandVideo({
   logoOpacity = 0.9, logoTargetHeightPx, logoEnabled = true,
   brandName, primaryColor, tagline, contact, social, elements,
   fontFamily, stickers, stickerMeta,
-  // Template identifier (for concat-based templates)
   templateFamilyId,
-  // Template custom fields â€” nested objects
   templateCustomFields, template_custom_fields,
-  // Root-level aliases the payload may carry
-  wrapper,
   reviewerName, reviewerTitle, starRating,
   speakerName, speakerTitle,
   productName, productPrice,
@@ -1436,11 +1173,12 @@ export async function brandVideo({
   introText,
   copyrightText,
 }) {
+  console.log(`[video.js] === STANDARD VIDEO BRANDING (no wrapper) ===`);
+
   // Merge template custom fields from all possible sources
   const mergedCustomFields = {
     ...(template_custom_fields || {}),
     ...(templateCustomFields || {}),
-    // Root-level aliases override nested objects
     ...(reviewerName     ? { reviewerName } : {}),
     ...(reviewerTitle    ? { reviewerTitle } : {}),
     ...(starRating       ? { starRating } : {}),
@@ -1464,8 +1202,7 @@ export async function brandVideo({
   };
   const hasCustomFields = Object.keys(mergedCustomFields).length > 0;
 
-  // â”€â”€ Check for concat-based templates (End Card CTA, Intro/Outro Bumper) â”€â”€
-  // These generate separate branded segments and concatenate with the main video.
+  // ── Check for concat-based templates ───────────────────────────────────
   const isConcatTemplate = templateFamilyId && ["vid-end-card", "vid-intro-outro"].includes(templateFamilyId);
   if (isConcatTemplate) {
     return await handleConcatTemplate({
@@ -1474,11 +1211,11 @@ export async function brandVideo({
       logoSize, logoPosition, logoOpacity, logoTargetHeightPx, logoEnabled,
       brandName, primaryColor, tagline, contact, social, elements,
       fontFamily, stickers, stickerMeta,
-      copyrightText, wrapper,
+      copyrightText,
     });
   }
 
-  // â”€â”€ Standard overlay pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Standard overlay pipeline ──────────────────────────────────────────
   const hasLogo = logoEnabled && logoPath;
   const targetHeight = logoTargetHeightPx || LOGO_SIZE_MAP[logoSize] || LOGO_SIZE_MAP.medium;
   const overlayPos = getOverlayPosition(logoPosition);
@@ -1527,17 +1264,14 @@ export async function brandVideo({
   let lastLabel = "[0:v]";
   let inputIndex = 1;
 
-  // â”€â”€ Social Clip â€” Branded Frame with Captions Area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Wraps the video in a branded frame (padded border in brand color) with a
-  // dedicated captions strip at the bottom showing brand name and tagline.
+  // ── Social Clip – Branded Frame ──────────────────────────────────────────
   if (templateFamilyId === "vid-social-clip") {
     const probe = probeVideoInfo(inputPath);
     const padSide = 30;
     const padTop = 30;
-    const captionH = 90; // Height of the captions area at the bottom
+    const captionH = 90;
     const paddedW = probe.width + padSide * 2;
     const paddedH = probe.height + padTop + captionH;
-    // Round to even numbers for codec compatibility
     const finalW = paddedW % 2 === 0 ? paddedW : paddedW + 1;
     const finalH = paddedH % 2 === 0 ? paddedH : paddedH + 1;
 
@@ -1546,7 +1280,6 @@ export async function brandVideo({
     );
     lastLabel = "[v_frame]";
 
-    // Brand name in the captions area
     if (brandName) {
       const escaped = escapeDrawText(brandName);
       const textY = probe.height + padTop + 18;
@@ -1556,7 +1289,6 @@ export async function brandVideo({
       lastLabel = "[v_sc_name]";
     }
 
-    // Tagline below brand name in captions area
     if (tagline) {
       const escaped = escapeDrawText(tagline);
       const textY = probe.height + padTop + (brandName ? 50 : 25);
@@ -1566,45 +1298,26 @@ export async function brandVideo({
       lastLabel = "[v_sc_tag]";
     }
 
-    console.log(`[video.js] Social Clip frame: ${probe.width}x${probe.height} â†’ ${finalW}x${finalH}, captions=${captionH}px`);
+    console.log(`[video.js] Social Clip frame: ${probe.width}x${probe.height} → ${finalW}x${finalH}, captions=${captionH}px`);
   }
-  // -- Wrapper overlays (Video Wrapper Builder) --------------------------------
-  // When wrapper config is present, it is the SOLE rendering pipeline.
-  // Skip ALL standard branding (logo, header, stickers, template overlays, footer)
-  // to prevent duplicated elements in the output.
-  let extraCleanupPaths = [];
-  const hasWrapper = wrapper && typeof wrapper === "object" && wrapper.elements;
 
-  if (hasWrapper) {
-    const wrapResult = await buildWrapperOverlayFilters({
-      inputPath, wrapper, fontPath, boldFontPath, lastLabel, inputIndex, inputs, filters,
-      logoPath: hasLogo ? logoPath : null,
-      logoEnabled, logoTargetHeight: targetHeight, logoOpacity,
-    });
-    lastLabel = wrapResult.lastLabel;
-    inputIndex = wrapResult.inputIndex;
-    if (wrapResult.cleanupPaths) extraCleanupPaths.push(...wrapResult.cleanupPaths);
-    console.log(`[video.js] Wrapper overlays applied — skipping standard branding pipeline`);
-  }
+  let extraCleanupPaths = [];
 
   // Pre-check: will the event countdown template handle the center logo itself?
-  const eventCountdownWillHandleLogo = !hasWrapper && hasCustomFields &&
+  const eventCountdownWillHandleLogo = hasCustomFields &&
     (mergedCustomFields.eventName || mergedCustomFields.eventDate || mergedCustomFields.eventLocation) &&
     logoPosition === "center" && hasLogo;
 
-  // Templates with bottom banners that would paint over the logo —
-  // defer logo overlay until AFTER the template drawbox filters so the
-  // logo sits on top of the banner instead of hiding behind it.
   const bottomBannerTemplates = [
     "vid-testimonial-overlay", "vid-lower-third",
     "vid-contact-lower-third", "vid-customer-quote-card",
     "vid-product-demo",
   ];
-  const hasBottomBanner = !hasWrapper && hasCustomFields && bottomBannerTemplates.includes(templateFamilyId);
+  const hasBottomBanner = hasCustomFields && bottomBannerTemplates.includes(templateFamilyId);
   const deferLogo = hasLogo && !eventCountdownWillHandleLogo && hasBottomBanner;
 
-  // Add logo overlay now — unless wrapper handles it, deferred, or handled by event countdown
-  if (!hasWrapper && hasLogo && !eventCountdownWillHandleLogo && !deferLogo) {
+  // Add logo overlay
+  if (hasLogo && !eventCountdownWillHandleLogo && !deferLogo) {
     inputs.push("-loop", "1", "-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo]`);
     filters.push(`${lastLabel}[logo]overlay=${overlayPos}[v_logo]`);
@@ -1612,7 +1325,7 @@ export async function brandVideo({
     inputIndex++;
   }
 
-  if (!hasWrapper && hasHeader) {
+  if (hasHeader) {
     const escapedName = escapeDrawText(brandName);
     filters.push(`${lastLabel}drawbox=x=0:y=0:w=iw:h=40:color=${bgColor}@0.7:t=fill[v_hdr_bg]`);
     lastLabel = "[v_hdr_bg]";
@@ -1620,7 +1333,7 @@ export async function brandVideo({
     lastLabel = "[v_hdr]";
   }
 
-  if (!hasWrapper && stickerPngs.length > 0) {
+  if (stickerPngs.length > 0) {
     const stickerPadding = 15;
     const stickerGap = 8;
     let stickerYOffset = hasHeader ? 50 : stickerPadding;
@@ -1638,8 +1351,8 @@ export async function brandVideo({
     }
   }
 
-  let skipFooter = hasWrapper; // Wrapper handles its own footer/bottom bar
-  if (!hasWrapper && hasCustomFields) {
+  let skipFooter = false;
+  if (hasCustomFields) {
     const result = await buildTemplateOverlayFilters({
       templateCustomFields: mergedCustomFields,
       bgColor,
@@ -1651,13 +1364,11 @@ export async function brandVideo({
       inputIndex,
       inputs,
       filters,
-      // Additional context for centered / grid templates
       hasFooterContent,
       templateFamilyId,
       contact,
       social,
       tagline,
-      // Logo context for event countdown center-logo integration
       logoPath: hasLogo ? logoPath : null,
       logoPosition,
       logoTargetHeight: targetHeight,
@@ -1670,9 +1381,8 @@ export async function brandVideo({
     if (result.skipFooter) skipFooter = true;
   }
 
-  // â”€â”€ Deferred logo overlay (for bottom-banner templates) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Renders the logo ON TOP of the template banner so it's visible.
-  if (!hasWrapper && deferLogo) {
+  // ── Deferred logo overlay (for bottom-banner templates) ──────────────────
+  if (deferLogo) {
     inputs.push("-loop", "1", "-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo_def]`);
     filters.push(`${lastLabel}[logo_def]overlay=${overlayPos}[v_logo_def]`);
@@ -1680,9 +1390,7 @@ export async function brandVideo({
     inputIndex++;
   }
 
-  // â”€â”€ Footer with inline icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Skipped when a template (e.g. Event Countdown) renders everything in
-  // a centered display instead.
+  // ── Footer with inline icons ─────────────────────────────────────────────
   if (hasFooterContent && !skipFooter) {
     const footerHeight = 32;
 
@@ -1761,7 +1469,6 @@ export async function brandVideo({
   }
 
   if (filters.length > 0) {
-    // Normalize timestamps to prevent PTS drift with multiple overlays
     const finalLabel = lastLabel.replace("[", "").replace("]", "");
     filters.push(`[${finalLabel}]setpts=PTS-STARTPTS[v_out]`);
 
@@ -1793,10 +1500,9 @@ export async function brandVideo({
   for (const sticker of stickerPngs) {
     await fs.unlink(sticker.path).catch(() => {});
   }
-  const cleanupPaths = typeof extraCleanupPaths !== "undefined" && Array.isArray(extraCleanupPaths)
-    ? extraCleanupPaths
-    : [];
-  for (const p of cleanupPaths) {
-    await fs.unlink(p).catch(() => {});
+  if (Array.isArray(extraCleanupPaths)) {
+    for (const p of extraCleanupPaths) {
+      await fs.unlink(p).catch(() => {});
+    }
   }
 }
