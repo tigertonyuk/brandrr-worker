@@ -1253,7 +1253,7 @@ async function handleConcatTemplate({
 
 // --- Wrapper overlay builder -------------------------------------------------
 async function buildWrapperOverlayFilters({
-  wrapper, fontPath, boldFontPath, lastLabel, inputIndex, inputs, filters,
+  inputPath, wrapper, fontPath, boldFontPath, lastLabel, inputIndex, inputs, filters,
   logoPath, logoEnabled, logoTargetHeight, logoOpacity,
 }) {
   if (!wrapper || typeof wrapper !== "object") {
@@ -1273,71 +1273,86 @@ async function buildWrapperOverlayFilters({
   const cta = wrapper.cta || "";
   const badgeText = wrapper.badge_text || "";
   const website = wrapper.website || "";
+  const phone = wrapper.phone || "";
+  const fontScaleRaw = Number(wrapper.font_size ?? 100);
+  const fontScale = Number.isFinite(fontScaleRaw)
+    ? Math.max(0.5, Math.min(2, fontScaleRaw / 100))
+    : 1;
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+  const probe = probeVideoInfo(inputPath);
+  const sourceWidth = probe.width;
+  const sourceHeight = probe.height;
+
+  const borderW = els.border ? Math.max(4, Math.round(sourceWidth * 0.015)) : 0;
+  const topBarH = els.top_bar ? Math.max(36, Math.round(sourceHeight * 0.08)) : 0;
+  const bottomBarH = els.bottom_bar ? Math.max(36, Math.round(sourceHeight * 0.08)) : 0;
+  const footerCtaH = els.footer_cta ? Math.max(28, Math.round(sourceHeight * 0.06)) : 0;
+  const sidePanelW = els.side_panel ? Math.round(sourceWidth * 0.22) : 0;
+
+  const canvasW = sourceWidth + borderW * 2 + sidePanelW;
+  const canvasH = sourceHeight + borderW * 2 + topBarH + bottomBarH + footerCtaH;
+  const imgX = borderW;
+  const imgY = borderW + topBarH;
+  const contentW = canvasW - borderW * 2;
+  const baseFillColor = els.border ? borderColor : bgColor;
 
   console.log(`[video.js] Wrapper overlay: headline="${headline}", sub="${subheadline}", cta="${cta}", badge="${badgeText}"`);
   console.log(`[video.js] Wrapper elements: ${JSON.stringify(els)}`);
+  console.log(`[video.js] Wrapper geometry: ${sourceWidth}x${sourceHeight} → ${canvasW}x${canvasH}, border=${borderW}, top=${topBarH}, bottom=${bottomBarH}, cta=${footerCtaH}, side=${sidePanelW}`);
+
+  if (canvasW !== sourceWidth || canvasH !== sourceHeight) {
+    filters.push(`${lastLabel}pad=${canvasW}:${canvasH}:${imgX}:${imgY}:color=${baseFillColor}[v_wrap_canvas]`);
+    lastLabel = "[v_wrap_canvas]";
+  }
 
   if (els.background_overlay) {
-    filters.push(`${lastLabel}drawbox=x=0:y=0:w=iw:h=ih:color=${bgColor}@0.35:t=fill[v_wrap_bgov]`);
+    filters.push(`${lastLabel}drawbox=x=${imgX}:y=${imgY}:w=${sourceWidth}:h=${sourceHeight}:color=${bgColor}@0.35:t=fill[v_wrap_bgov]`);
     lastLabel = "[v_wrap_bgov]";
   }
 
-  if (els.border) {
-    const bw = 4;
-    filters.push(`${lastLabel}drawbox=x=0:y=0:w=iw:h=${bw}:color=${borderColor}:t=fill[v_wrap_bt]`);
-    lastLabel = "[v_wrap_bt]";
-    filters.push(`${lastLabel}drawbox=x=0:y=ih-${bw}:w=iw:h=${bw}:color=${borderColor}:t=fill[v_wrap_bb]`);
-    lastLabel = "[v_wrap_bb]";
-    filters.push(`${lastLabel}drawbox=x=0:y=0:w=${bw}:h=ih:color=${borderColor}:t=fill[v_wrap_bl]`);
-    lastLabel = "[v_wrap_bl]";
-    filters.push(`${lastLabel}drawbox=x=iw-${bw}:y=0:w=${bw}:h=ih:color=${borderColor}:t=fill[v_wrap_br]`);
-    lastLabel = "[v_wrap_br]";
-  }
-
   if (els.side_panel) {
-    const panelW = 180;
-    filters.push(`${lastLabel}drawbox=x=iw-${panelW}:y=0:w=${panelW}:h=ih:color=${bgColor}@0.85:t=fill[v_wrap_sp]`);
+    const panelX = canvasW - borderW - sidePanelW;
+    const panelY = imgY;
+    filters.push(`${lastLabel}drawbox=x=${panelX}:y=${panelY}:w=${sidePanelW}:h=${sourceHeight}:color=${bgColor}:t=fill[v_wrap_sp]`);
     lastLabel = "[v_wrap_sp]";
-    if (headline) {
-      const escaped = escapeDrawText(headline);
-      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=16:fontcolor=${fontColor}:x=W-${panelW}+15:y=60:fontfile=${boldFontPath}[v_wrap_sph]`);
-      lastLabel = "[v_wrap_sph]";
-    }
     if (subheadline) {
       const escaped = escapeDrawText(subheadline);
-      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=12:fontcolor=${fontColor}@0.85:x=W-${panelW}+15:y=90:fontfile=${fontPath}[v_wrap_sps]`);
+      const fontSize = clamp(Math.round(sidePanelW * 0.12 * fontScale), 8, 72);
+      const textX = `${panelX}+(${sidePanelW}-tw)/2`;
+      const textY = `${panelY}+(${sourceHeight}-${fontSize})/2`;
+      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${textX}:y=${textY}:fontfile=${boldFontPath}[v_wrap_sps]`);
       lastLabel = "[v_wrap_sps]";
     }
   }
 
   if (els.top_bar) {
-    const barH = 52;
-    filters.push(`${lastLabel}drawbox=x=0:y=0:w=iw:h=${barH}:color=${bgColor}@0.9:t=fill[v_wrap_tb]`);
+    const barY = borderW;
+    filters.push(`${lastLabel}drawbox=x=${borderW}:y=${barY}:w=${contentW}:h=${topBarH}:color=${bgColor}:t=fill[v_wrap_tb]`);
     lastLabel = "[v_wrap_tb]";
     if (headline) {
       const escaped = escapeDrawText(headline);
-      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=20:fontcolor=${fontColor}:x=(W-tw)/2:y=8:fontfile=${boldFontPath}[v_wrap_tbh]`);
+      const fontSize = clamp(Math.round(topBarH * 0.55 * fontScale), 10, 144);
+      const textX = `${borderW}+(${contentW}-tw)/2`;
+      const textY = barY + Math.round((topBarH - fontSize) / 2);
+      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${textX}:y=${textY}:fontfile=${boldFontPath}[v_wrap_tbh]`);
       lastLabel = "[v_wrap_tbh]";
-    }
-    if (subheadline && !els.side_panel) {
-      const escaped = escapeDrawText(subheadline);
-      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=13:fontcolor=${fontColor}@0.85:x=(W-tw)/2:y=32:fontfile=${fontPath}[v_wrap_tbs]`);
-      lastLabel = "[v_wrap_tbs]";
     }
   }
 
   if (els.badge && badgeText) {
-    const bPadX = 12;
-    const bPadY = 4;
-    const bFontSize = 14;
-    const estimatedW = badgeText.length * bFontSize * 0.7 + bPadX * 2;
-    const bH = bFontSize + bPadY * 2 + 6;
-    const bX = 15;
-    const bY = els.top_bar ? 60 : 15;
-    filters.push(`${lastLabel}drawbox=x=${bX}:y=${bY}:w=${Math.round(estimatedW)}:h=${bH}:color=${accentColor}:t=fill[v_wrap_bdg_bg]`);
+    const badgeH = Math.max(32, Math.round(Math.min(sourceWidth, sourceHeight) * 0.07));
+    const badgeFontSize = clamp(Math.round(badgeH * 0.3 * fontScale), 8, 56);
+    const badgePadX = 12;
+    const badgeW = Math.max(badgeH, Math.round(badgeText.length * badgeFontSize * 0.72 + badgePadX * 2));
+    const badgeX = canvasW - borderW - sidePanelW - badgeW - 8;
+    const badgeY = imgY + 8;
+    filters.push(`${lastLabel}drawbox=x=${badgeX}:y=${badgeY}:w=${badgeW}:h=${badgeH}:color=${accentColor}:t=fill[v_wrap_bdg_bg]`);
     lastLabel = "[v_wrap_bdg_bg]";
     const escaped = escapeDrawText(badgeText);
-    filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${bFontSize}:fontcolor=0x000000:x=${bX + bPadX}:y=${bY + bPadY + 2}:fontfile=${boldFontPath}[v_wrap_bdg_txt]`);
+    const textX = `${badgeX}+(${badgeW}-tw)/2`;
+    const textY = badgeY + Math.round((badgeH - badgeFontSize) / 2);
+    filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${badgeFontSize}:fontcolor=${bgColor}:x=${textX}:y=${textY}:fontfile=${boldFontPath}[v_wrap_bdg_txt]`);
     lastLabel = "[v_wrap_bdg_txt]";
   }
 
@@ -1345,38 +1360,52 @@ async function buildWrapperOverlayFilters({
     const lh = logoTargetHeight || 60;
     inputs.push("-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${lh},format=rgba,colorchannelmixer=aa=${logoOpacity || 0.9}[wrap_logo]`);
-    const logoX = 15;
-    const logoY = els.top_bar ? `${52 + 8}` : "15";
+    const logoX = imgX + 10;
+    const logoY = imgY + 10;
     filters.push(`${lastLabel}[wrap_logo]overlay=x=${logoX}:y=${logoY}[v_wrap_logo]`);
     lastLabel = "[v_wrap_logo]";
     inputIndex++;
   }
 
   if (els.bottom_bar) {
-    const barH = 48;
-    filters.push(`${lastLabel}drawbox=x=0:y=ih-${barH}:w=iw:h=${barH}:color=${bgColor}@0.9:t=fill[v_wrap_btm]`);
+    const barY = canvasH - borderW - footerCtaH - bottomBarH;
+    filters.push(`${lastLabel}drawbox=x=${borderW}:y=${barY}:w=${contentW}:h=${bottomBarH}:color=${bgColor}:t=fill[v_wrap_btm]`);
     lastLabel = "[v_wrap_btm]";
-    if (website) {
-      const escaped = escapeDrawText(website);
-      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=14:fontcolor=${fontColor}@0.8:x=W-tw-20:y=H-${barH}+16:fontfile=${fontPath}[v_wrap_btm_web]`);
-      lastLabel = "[v_wrap_btm_web]";
+    if (subheadline) {
+      const escaped = escapeDrawText(subheadline);
+      const fontSize = clamp(Math.round(bottomBarH * 0.45 * fontScale), 8, 96);
+      const textX = `${borderW}+(${contentW}-tw)/2`;
+      const textY = barY + Math.round((bottomBarH - fontSize) / 2);
+      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${fontSize}:fontcolor=${fontColor}:x=${textX}:y=${textY}:fontfile=${fontPath}[v_wrap_btm_txt]`);
+      lastLabel = "[v_wrap_btm_txt]";
     }
   }
 
-  if (els.footer_cta && cta) {
-    const ctaH = 36;
-    const ctaFontSize = 16;
-    const ctaPadX = 20;
-    const estimatedCtaW = cta.length * ctaFontSize * 0.65 + ctaPadX * 2;
-    const ctaX = els.bottom_bar ? 20 : `(iw-${Math.round(estimatedCtaW)})/2`;
-    const ctaY = els.bottom_bar ? `ih-${48}-${ctaH}-10` : `ih-${ctaH}-20`;
-    filters.push(`${lastLabel}drawbox=x=${ctaX}:y=${ctaY}:w=${Math.round(estimatedCtaW)}:h=${ctaH}:color=${accentColor}:t=fill[v_wrap_cta_bg]`);
+  if (els.footer_cta) {
+    const footerY = canvasH - borderW - footerCtaH;
+    filters.push(`${lastLabel}drawbox=x=${borderW}:y=${footerY}:w=${contentW}:h=${footerCtaH}:color=${accentColor}:t=fill[v_wrap_cta_bg]`);
     lastLabel = "[v_wrap_cta_bg]";
-    const escaped = escapeDrawText(cta);
-    const textX = els.bottom_bar ? `20+${ctaPadX}` : `(W-${Math.round(estimatedCtaW)})/2+${ctaPadX}`;
-    const textY = els.bottom_bar ? `H-${48}-${ctaH}-10+9` : `H-${ctaH}-20+9`;
-    filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${ctaFontSize}:fontcolor=0x000000:x=${textX}:y=${textY}:fontfile=${boldFontPath}[v_wrap_cta_txt]`);
-    lastLabel = "[v_wrap_cta_txt]";
+
+    const footerText = [cta, website, phone].filter(Boolean).join("  •  ");
+    if (footerText) {
+      const escaped = escapeDrawText(footerText);
+      const fontSize = clamp(Math.round(footerCtaH * 0.5 * fontScale), 8, 72);
+      const textX = `${borderW}+(${contentW}-tw)/2`;
+      const textY = footerY + Math.round((footerCtaH - fontSize) / 2);
+      filters.push(`${lastLabel}drawtext=text='${escaped}':fontsize=${fontSize}:fontcolor=${bgColor}:x=${textX}:y=${textY}:fontfile=${boldFontPath}[v_wrap_cta_txt]`);
+      lastLabel = "[v_wrap_cta_txt]";
+    }
+  }
+
+  if (els.border && borderW > 0) {
+    filters.push(`${lastLabel}drawbox=x=0:y=0:w=${canvasW}:h=${borderW}:color=${borderColor}:t=fill[v_wrap_bt]`);
+    lastLabel = "[v_wrap_bt]";
+    filters.push(`${lastLabel}drawbox=x=0:y=${canvasH - borderW}:w=${canvasW}:h=${borderW}:color=${borderColor}:t=fill[v_wrap_bb]`);
+    lastLabel = "[v_wrap_bb]";
+    filters.push(`${lastLabel}drawbox=x=0:y=0:w=${borderW}:h=${canvasH}:color=${borderColor}:t=fill[v_wrap_bl]`);
+    lastLabel = "[v_wrap_bl]";
+    filters.push(`${lastLabel}drawbox=x=${canvasW - borderW}:y=0:w=${borderW}:h=${canvasH}:color=${borderColor}:t=fill[v_wrap_br]`);
+    lastLabel = "[v_wrap_br]";
   }
 
   return { lastLabel, inputIndex, cleanupPaths };
@@ -1539,13 +1568,30 @@ export async function brandVideo({
 
     console.log(`[video.js] Social Clip frame: ${probe.width}x${probe.height} â†’ ${finalW}x${finalH}, captions=${captionH}px`);
   }
+  // -- Wrapper overlays (Video Wrapper Builder) --------------------------------
+  // When wrapper config is present, it is the SOLE rendering pipeline.
+  // Skip ALL standard branding (logo, header, stickers, template overlays, footer)
+  // to prevent duplicated elements in the output.
+  const hasWrapper = wrapper && typeof wrapper === "object" && wrapper.elements;
+
+  if (hasWrapper) {
+    const wrapResult = await buildWrapperOverlayFilters({
+      inputPath, wrapper, fontPath, boldFontPath, lastLabel, inputIndex, inputs, filters,
+      logoPath: hasLogo ? logoPath : null,
+      logoEnabled, logoTargetHeight: targetHeight, logoOpacity,
+    });
+    lastLabel = wrapResult.lastLabel;
+    inputIndex = wrapResult.inputIndex;
+    if (wrapResult.cleanupPaths) extraCleanupPaths.push(...wrapResult.cleanupPaths);
+    console.log(`[video.js] Wrapper overlays applied — skipping standard branding pipeline`);
+  }
 
   // Pre-check: will the event countdown template handle the center logo itself?
-  const eventCountdownWillHandleLogo = hasCustomFields &&
+  const eventCountdownWillHandleLogo = !hasWrapper && hasCustomFields &&
     (mergedCustomFields.eventName || mergedCustomFields.eventDate || mergedCustomFields.eventLocation) &&
     logoPosition === "center" && hasLogo;
 
-  // Templates with bottom banners that would paint over the logo â€”
+  // Templates with bottom banners that would paint over the logo —
   // defer logo overlay until AFTER the template drawbox filters so the
   // logo sits on top of the banner instead of hiding behind it.
   const bottomBannerTemplates = [
@@ -1553,11 +1599,11 @@ export async function brandVideo({
     "vid-contact-lower-third", "vid-customer-quote-card",
     "vid-product-demo",
   ];
-  const hasBottomBanner = hasCustomFields && bottomBannerTemplates.includes(templateFamilyId);
+  const hasBottomBanner = !hasWrapper && hasCustomFields && bottomBannerTemplates.includes(templateFamilyId);
   const deferLogo = hasLogo && !eventCountdownWillHandleLogo && hasBottomBanner;
 
-  // Add logo overlay now â€” unless deferred or handled by event countdown
-  if (hasLogo && !eventCountdownWillHandleLogo && !deferLogo) {
+  // Add logo overlay now — unless wrapper handles it, deferred, or handled by event countdown
+  if (!hasWrapper && hasLogo && !eventCountdownWillHandleLogo && !deferLogo) {
     inputs.push("-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo]`);
     filters.push(`${lastLabel}[logo]overlay=${overlayPos}[v_logo]`);
@@ -1565,7 +1611,7 @@ export async function brandVideo({
     inputIndex++;
   }
 
-  if (hasHeader) {
+  if (!hasWrapper && hasHeader) {
     const escapedName = escapeDrawText(brandName);
     filters.push(`${lastLabel}drawbox=x=0:y=0:w=iw:h=40:color=${bgColor}@0.7:t=fill[v_hdr_bg]`);
     lastLabel = "[v_hdr_bg]";
@@ -1573,7 +1619,7 @@ export async function brandVideo({
     lastLabel = "[v_hdr]";
   }
 
-  if (stickerPngs.length > 0) {
+  if (!hasWrapper && stickerPngs.length > 0) {
     const stickerPadding = 15;
     const stickerGap = 8;
     let stickerYOffset = hasHeader ? 50 : stickerPadding;
@@ -1591,24 +1637,8 @@ export async function brandVideo({
     }
   }
 
-  // â”€â”€ Template custom field overlays â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  let extraCleanupPaths = [];
-
-  // -- Wrapper overlays (Video Wrapper Builder) --------------------------------
-  if (wrapper && typeof wrapper === "object" && wrapper.elements) {
-    const wrapResult = await buildWrapperOverlayFilters({
-      wrapper, fontPath, boldFontPath, lastLabel, inputIndex, inputs, filters,
-      logoPath: hasLogo ? logoPath : null,
-      logoEnabled, logoTargetHeight: targetHeight, logoOpacity,
-    });
-    lastLabel = wrapResult.lastLabel;
-    inputIndex = wrapResult.inputIndex;
-    if (wrapResult.cleanupPaths) extraCleanupPaths.push(...wrapResult.cleanupPaths);
-    console.log(`[video.js] Wrapper overlays applied`);
-  }
-
-  let skipFooter = false;
-  if (hasCustomFields) {
+  let skipFooter = hasWrapper; // Wrapper handles its own footer/bottom bar
+  if (!hasWrapper && hasCustomFields) {
     const result = await buildTemplateOverlayFilters({
       templateCustomFields: mergedCustomFields,
       bgColor,
@@ -1641,7 +1671,7 @@ export async function brandVideo({
 
   // â”€â”€ Deferred logo overlay (for bottom-banner templates) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Renders the logo ON TOP of the template banner so it's visible.
-  if (deferLogo) {
+  if (!hasWrapper && deferLogo) {
     inputs.push("-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo_def]`);
     filters.push(`${lastLabel}[logo_def]overlay=${overlayPos}[v_logo_def]`);
