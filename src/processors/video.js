@@ -1572,6 +1572,7 @@ export async function brandVideo({
   // When wrapper config is present, it is the SOLE rendering pipeline.
   // Skip ALL standard branding (logo, header, stickers, template overlays, footer)
   // to prevent duplicated elements in the output.
+  let extraCleanupPaths = [];
   const hasWrapper = wrapper && typeof wrapper === "object" && wrapper.elements;
 
   if (hasWrapper) {
