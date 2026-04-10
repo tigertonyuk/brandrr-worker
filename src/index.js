@@ -11,6 +11,7 @@ import { probeFile } from "./probe.js";
 import { brandImage } from "./processors/image.js";
 import { brandPdf } from "./processors/pdf.js";
 import { brandVideo } from "./processors/video.js";
+import { brandVideoWrapper } from "./processors/video-wrapper.js";
 import { uploadOutput } from "./upload.js";
 
 const app = express();
@@ -27,7 +28,6 @@ async function handleTestStorage(req, res) {
     if (!dest) return res.status(400).json({ ok: false, message: "Missing destination" });
 
     if (dest.provider === "google_drive") {
-      // Quick validation — we don't actually upload anything
       return res.json({ ok: true, message: "Google Drive credentials accepted" });
     }
 
@@ -91,7 +91,11 @@ async function processJob(payload) {
   const callbackKey = process.env.BRANDRR_INTERNAL_KEY || "";
   const jobDir = path.join(os.tmpdir(), `brandrr-job-${jobId}`);
 
-  console.log(`[job ${jobId}] Starting ${jobType} job`);
+  // Detect wrapper config from payload
+  const wrapperConfig = payload.wrapper_config || payload.wrapper || undefined;
+  const isWrapperJob = jobType === "video_brand" && wrapperConfig && typeof wrapperConfig === "object" && wrapperConfig.elements;
+
+  console.log(`[job ${jobId}] Starting ${jobType} job${isWrapperJob ? " (WRAPPER)" : ""}`);
 
   try {
     await ensureDir(jobDir);
@@ -169,29 +173,47 @@ async function processJob(payload) {
           break;
 
         case "video_brand":
-          await brandVideo({
-            inputPath,
-            logoPath,
-            outputPath,
-            jobDir,
-            logoSize: brand.logo_size || "medium",
-            logoPosition: brand.logo_position || "bottom-right",
-            logoTargetHeightPx: brand.logo_target_height_px,
-            logoEnabled: brand.logo_enabled ?? true,
-            brandName: brand.name,
-            primaryColor: brand.primary_color,
-            tagline: brand.tagline,
-            contact: brand.contact,
-            social: brand.social,
-            elements: brand.elements,
-            fontFamily: brand.fontFamily,
-            stickers: brand.stickers,
-            stickerMeta: brand.stickerMeta,
-            templateFamilyId: payload.template_family_id || payload.templateFamilyId,
-            templateCustomFields: payload.templateCustomFields || payload.template_custom_fields || {},
-            copyrightText: brand.copyright_text || brand.copyrightText || payload.copyright_text || payload.copyrightText || undefined,
-            wrapper: payload.wrapper_config || payload.wrapper || undefined,
-          });
+          if (isWrapperJob) {
+            // ── WRAPPER JOB → dedicated video-wrapper.js processor ──
+            console.log(`[job ${jobId}] Routing to video-wrapper.js (isolated wrapper pipeline)`);
+            await brandVideoWrapper({
+              inputPath,
+              logoPath,
+              outputPath,
+              jobDir,
+              logoSize: brand.logo_size || "medium",
+              logoPosition: brand.logo_position || "bottom-right",
+              logoTargetHeightPx: brand.logo_target_height_px,
+              logoEnabled: brand.logo_enabled ?? true,
+              fontFamily: brand.fontFamily,
+              wrapper: wrapperConfig,
+            });
+          } else {
+            // ── STANDARD VIDEO JOB → video.js processor ──
+            console.log(`[job ${jobId}] Routing to video.js (standard branding pipeline)`);
+            await brandVideo({
+              inputPath,
+              logoPath,
+              outputPath,
+              jobDir,
+              logoSize: brand.logo_size || "medium",
+              logoPosition: brand.logo_position || "bottom-right",
+              logoTargetHeightPx: brand.logo_target_height_px,
+              logoEnabled: brand.logo_enabled ?? true,
+              brandName: brand.name,
+              primaryColor: brand.primary_color,
+              tagline: brand.tagline,
+              contact: brand.contact,
+              social: brand.social,
+              elements: brand.elements,
+              fontFamily: brand.fontFamily,
+              stickers: brand.stickers,
+              stickerMeta: brand.stickerMeta,
+              templateFamilyId: payload.template_family_id || payload.templateFamilyId,
+              templateCustomFields: payload.templateCustomFields || payload.template_custom_fields || {},
+              copyrightText: brand.copyright_text || brand.copyrightText || payload.copyright_text || payload.copyrightText || undefined,
+            });
+          }
           break;
 
         default:
