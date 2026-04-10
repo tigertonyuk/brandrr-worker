@@ -737,7 +737,7 @@ async function buildTemplateOverlayFilters({
     // If logo is center, overlay it inside the box at the top
     if (isCenterLogo) {
       const th = logoTargetHeight || 100;
-      inputs.push("-i", logoPath);
+      inputs.push("-loop", "1", "-i", logoPath);
       filters.push(`[${inputIndex}:v]scale=-1:${th},format=rgba,colorchannelmixer=aa=${logoOpacity || 0.9}[ec_clogo]`);
       const logoY = `(H-${boxH})/2+${boxPadding}`;
       filters.push(`${lastLabel}[ec_clogo]overlay=x=(W-w)/2:y=${logoY}[v_ec_clogo]`);
@@ -1358,7 +1358,7 @@ async function buildWrapperOverlayFilters({
 
   if (els.logo && logoEnabled && logoPath) {
     const lh = logoTargetHeight || 60;
-    inputs.push("-i", logoPath);
+    inputs.push("-loop", "1", "-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${lh},format=rgba,colorchannelmixer=aa=${logoOpacity || 0.9}[wrap_logo]`);
     const logoX = imgX + 10;
     const logoY = imgY + 10;
@@ -1605,7 +1605,7 @@ export async function brandVideo({
 
   // Add logo overlay now — unless wrapper handles it, deferred, or handled by event countdown
   if (!hasWrapper && hasLogo && !eventCountdownWillHandleLogo && !deferLogo) {
-    inputs.push("-i", logoPath);
+    inputs.push("-loop", "1", "-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo]`);
     filters.push(`${lastLabel}[logo]overlay=${overlayPos}[v_logo]`);
     lastLabel = "[v_logo]";
