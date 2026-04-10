@@ -1,167 +1,212 @@
 import express from "express";
 import path from "path";
 import os from "os";
+import fs from "fs/promises";
 import fetch from "node-fetch";
 
-// --- local modules (same directory: src/) ---
 import { requireWorkerAuth } from "./auth.js";
 import { run, ensureDir, downloadToFile } from "./utils.js";
 import { testS3 } from "./s3.js";
-import { uploadOutput } from "./upload.js";
 import { probeFile } from "./probe.js";
-
-// --- processors (src/processors/) ---
+import { brandImage } from "./image.js";
+import { brandPdf } from "./pdf.js";
 import { brandVideo } from "./processors/video.js";
-import { brandImage } from "./processors/image.js";
-import { brandPdf } from "./processors/pdf.js";
+import { uploadOutput } from "./upload.js";
 
 const app = express();
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "50mb" }));
 
-// ──── Health ────────────────────────────────────────────────────────────────────
+// ─── Health ────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/v1/health", (_req, res) => res.json({ ok: true }));
 
-// ──── Test Storage ──────────────────────────────────────────────────────────────
-app.post("/test-storage", requireWorkerAuth, async (req, res) => {
+// ─── Test Storage ──────────────────────────────────────────────────
+async function handleTestStorage(req, res) {
   try {
-    const dest = req.body.destination;
+    const dest = req.body?.destination;
     if (!dest) return res.status(400).json({ ok: false, message: "Missing destination" });
 
     if (dest.provider === "google_drive") {
-      // For Google Drive we just validate that the tokens exist
-      if (!dest.oauth_access_token && !dest.oauth_refresh_token) {
-        return res.json({ ok: false, message: "Missing Google Drive OAuth tokens" });
-      }
-      return res.json({ ok: true, message: "Google Drive credentials present" });
+      // Quick validation — we don't actually upload anything
+      return res.json({ ok: true, message: "Google Drive credentials accepted" });
     }
 
     await testS3(dest);
-    res.json({ ok: true, message: "Connection successful" });
+    res.json({ ok: true, message: "Storage connection successful" });
   } catch (err) {
-    console.error("[test-storage]", err.message);
-    res.json({ ok: false, message: err.message });
+    console.error("[test-storage]", err);
+    res.status(400).json({ ok: false, message: err.message });
   }
-});
+}
+app.post("/test-storage", requireWorkerAuth, handleTestStorage);
+app.post("/v1/test-storage", requireWorkerAuth, handleTestStorage);
+app.post("/storage/test", requireWorkerAuth, handleTestStorage);
+app.post("/v1/storage/test", requireWorkerAuth, handleTestStorage);
 
-// ──── Probe ─────────────────────────────────────────────────────────────────────
-app.post("/probe", requireWorkerAuth, async (req, res) => {
+// ─── Probe ─────────────────────────────────────────────────────────
+async function handleProbe(req, res) {
   try {
-    const result = await probeFile({
-      tempUrl: req.body.temp_url || req.body.tempUrl,
-      mimeType: req.body.mime_type || req.body.mimeType,
-    });
+    const { temp_path, temp_url, mime_type } = req.body || {};
+    const url = temp_url || temp_path;
+    if (!url) return res.status(400).json({ ok: false, message: "Missing temp_url" });
+
+    const result = await probeFile({ tempUrl: url, mimeType: mime_type });
     res.json({ ok: true, meta: result });
   } catch (err) {
-    console.error("[probe]", err.message);
-    res.json({ ok: false, message: err.message });
+    console.error("[probe]", err);
+    res.status(500).json({ ok: false, message: err.message });
   }
-});
+}
+app.post("/probe", requireWorkerAuth, handleProbe);
+app.post("/v1/probe", requireWorkerAuth, handleProbe);
+app.post("/media/probe", requireWorkerAuth, handleProbe);
+app.post("/v1/media/probe", requireWorkerAuth, handleProbe);
 
-// ──── Start Job ─────────────────────────────────────────────────────────────────
-app.post("/start-job", requireWorkerAuth, async (req, res) => {
+// ─── Start Job ─────────────────────────────────────────────────────
+async function handleStartJob(req, res) {
   const payload = req.body;
-  const jobId = payload.job_id;
 
-  // Respond immediately so the caller doesn't time out
-  res.json({ accepted: true });
+  if (!payload?.job_id) {
+    return res.status(400).json({ accepted: false, message: "Missing job_id" });
+  }
 
-  // Process asynchronously
+  // Acknowledge immediately — processing happens asynchronously
+  res.json({ accepted: true, message: "Job accepted" });
+
+  // Process in background
   processJob(payload).catch((err) => {
-    console.error(`[job:${jobId}] FATAL:`, err.message);
-    reportCallback(payload, "failed", 0, err.message);
+    console.error(`[job ${payload.job_id}] Fatal error:`, err);
   });
-});
+}
+app.post("/start-job", requireWorkerAuth, handleStartJob);
+app.post("/v1/start-job", requireWorkerAuth, handleStartJob);
+app.post("/jobs/start", requireWorkerAuth, handleStartJob);
+app.post("/v1/jobs/start", requireWorkerAuth, handleStartJob);
 
-// ──── Job processor ─────────────────────────────────────────────────────────────
+// ─── Job Processor ─────────────────────────────────────────────────
 async function processJob(payload) {
   const jobId = payload.job_id;
   const jobType = payload.job_type;
-  const brand = payload.brand || {};
-  const inputs = payload.inputs || [];
-  const destination = payload.output?.destination;
   const callbackUrl = payload.callback?.url;
+  const callbackKey = process.env.BRANDRR_INTERNAL_KEY || "";
+  const jobDir = path.join(os.tmpdir(), `brandrr-job-${jobId}`);
 
-  if (!destination) throw new Error("No output destination configured");
-  if (!inputs.length) throw new Error("No input files");
-
-  const jobDir = path.join(os.tmpdir(), `brandrr-job-${jobId}-${Date.now()}`);
-  await ensureDir(jobDir);
+  console.log(`[job ${jobId}] Starting ${jobType} job`);
 
   try {
-    // Report progress: started
-    await reportCallback(payload, "processing", 5);
+    await ensureDir(jobDir);
 
-    // Download logo if enabled
-    const logoUrl = brand.logo_url_temp;
-    let logoPath = null;
-    if ((brand.logo_enabled ?? true) && logoUrl) {
-      logoPath = path.join(jobDir, "logo.png");
-      await downloadToFile(logoUrl, logoPath);
+    // Report "processing" status
+    await reportProgress(callbackUrl, callbackKey, jobId, "processing", 10);
+
+    const inputs = payload.inputs || [];
+    if (inputs.length === 0) {
+      throw new Error("No input files provided");
+    }
+
+    const brand = payload.brand || {};
+    const destination = payload.output?.destination;
+
+    if (!destination) {
+      throw new Error("No output destination configured");
     }
 
     const results = [];
-    const totalInputs = inputs.length;
 
-    for (let i = 0; i < totalInputs; i++) {
+    for (let i = 0; i < inputs.length; i++) {
       const input = inputs[i];
-      const inputPath = path.join(jobDir, `input-${i}-${input.filename}`);
-      await downloadToFile(input.temp_url, inputPath);
+      const inputUrl = input.temp_url || input.temp_path;
+      const inputFilename = input.filename || `input-${i}`;
+      const mimeType = input.mime_type || "application/octet-stream";
 
-      const ext = getOutputExtension(jobType, input.mime_type);
-      const outputFilename = `branded-${jobId}-${i}${ext}`;
-      const outputPath = path.join(jobDir, outputFilename);
+      console.log(`[job ${jobId}] Processing input ${i + 1}/${inputs.length}: ${inputFilename}`);
 
-      // Route to the correct processor
-      if (jobType === "video_brand") {
-        await brandVideo({
-          inputPath,
-          logoPath,
-          outputPath,
-          jobDir,
-          logoSize: brand.logo_size || "medium",
-          logoPosition: brand.logo_position || "bottom-right",
-          logoTargetHeightPx: brand.logo_target_height_px,
-          logoEnabled: brand.logo_enabled ?? true,
-          brandName: brand.name,
-          primaryColor: brand.primary_color,
-          secondaryColor: brand.secondary_color,
-          tagline: brand.tagline,
-          contact: brand.contact,
-          social: brand.social,
-          elements: brand.elements,
-          fontFamily: brand.fontFamily,
-          stickers: brand.stickers,
-          stickerMeta: brand.stickerMeta,
-          templateFamilyId: payload.template?.family_id || payload.template_family_id,
-          templateCustomFields: payload.templateCustomFields || payload.template_custom_fields || {},
-          wrapper: payload.wrapper_config || payload.wrapper || undefined,
-        });
-      } else if (jobType === "image_brand") {
-        await brandImage({
-          inputPath,
-          logoPath,
-          outputPath,
-          logoSize: brand.logo_size || "medium",
-          logoPosition: brand.logo_position || "bottom-right",
-          logoEnabled: brand.logo_enabled ?? true,
-        });
-      } else if (jobType === "pdf_brand") {
-        await brandPdf({
-          inputPath,
-          logoPath,
-          outputPath,
-        });
-      } else {
-        throw new Error(`Unknown job type: ${jobType}`);
+      // Download input file
+      const ext = path.extname(inputFilename) || getExtForMime(mimeType);
+      const inputPath = path.join(jobDir, `input-${i}${ext}`);
+      await downloadToFile(inputUrl, inputPath);
+
+      await reportProgress(callbackUrl, callbackKey, jobId, "processing", 20 + Math.round((i / inputs.length) * 50));
+
+      // Download logo if needed
+      const logoUrl = brand.logo_url_temp;
+      let logoPath = null;
+      if ((brand.logo_enabled ?? true) && logoUrl) {
+        logoPath = path.join(jobDir, "logo.png");
+        try {
+          await downloadToFile(logoUrl, logoPath);
+        } catch (logoErr) {
+          console.warn(`[job ${jobId}] Failed to download logo, continuing without:`, logoErr.message);
+          logoPath = null;
+        }
       }
 
-      // Upload the output using unified router (handles S3 + Google Drive)
-      const mimeType = getOutputMimeType(jobType, input.mime_type);
+      // Determine output filename and path
+      const outputExt = jobType === "video_brand" ? ".mp4" : ext;
+      const outputFilename = `branded-${jobId}-${i}${outputExt}`;
+      const outputPath = path.join(jobDir, outputFilename);
+
+      // Process based on job type
+      switch (jobType) {
+        case "image_brand":
+          if (!logoPath) throw new Error("Logo is required for image branding");
+          await brandImage({
+            inputPath,
+            logoPath,
+            outputPath,
+            logoSize: brand.logo_size || "medium",
+            logoPosition: brand.logo_position || "bottom-right",
+          });
+          break;
+
+        case "pdf_brand":
+          if (!logoPath) throw new Error("Logo is required for PDF branding");
+          await brandPdf({
+            inputPath,
+            logoPath,
+            outputPath,
+          });
+          break;
+
+        case "video_brand":
+          await brandVideo({
+            inputPath,
+            logoPath,
+            outputPath,
+            jobDir,
+            logoSize: brand.logo_size || "medium",
+            logoPosition: brand.logo_position || "bottom-right",
+            logoTargetHeightPx: brand.logo_target_height_px,
+            logoEnabled: brand.logo_enabled ?? true,
+            brandName: brand.name,
+            primaryColor: brand.primary_color,
+            tagline: brand.tagline,
+            contact: brand.contact,
+            social: brand.social,
+            elements: brand.elements,
+            fontFamily: brand.fontFamily,
+            stickers: brand.stickers,
+            stickerMeta: brand.stickerMeta,
+            templateFamilyId: payload.template_family_id || payload.templateFamilyId,
+            templateCustomFields: payload.templateCustomFields || payload.template_custom_fields || {},
+            copyrightText: brand.copyright_text || brand.copyrightText || payload.copyright_text || payload.copyrightText || undefined,
+            wrapper: payload.wrapper_config || payload.wrapper || undefined,
+          });
+          break;
+
+        default:
+          throw new Error(`Unsupported job type: ${jobType}`);
+      }
+
+      await reportProgress(callbackUrl, callbackKey, jobId, "processing", 70 + Math.round((i / inputs.length) * 20));
+
+      // Upload output
+      const uploadMime = jobType === "video_brand" ? "video/mp4" : mimeType;
       const { storagePath, signedUrl } = await uploadOutput(
         destination,
         outputPath,
         outputFilename,
-        mimeType
+        uploadMime
       );
 
       results.push({
@@ -169,79 +214,83 @@ async function processJob(payload) {
         filename: outputFilename,
         storage_path: storagePath,
         signed_url: signedUrl,
-        mime_type: mimeType,
+        mime_type: uploadMime,
       });
 
-      // Report progress
-      const progress = Math.round(10 + ((i + 1) / totalInputs) * 85);
-      await reportCallback(payload, "processing", progress);
+      console.log(`[job ${jobId}] Uploaded ${outputFilename} -> ${storagePath}`);
     }
 
     // Report completion
-    await reportCallback(payload, "completed", 100, null, results);
-    console.log(`[job:${jobId}] Completed successfully (${results.length} outputs)`);
+    await reportProgress(callbackUrl, callbackKey, jobId, "completed", 100, {
+      exports: results,
+    });
+
+    console.log(`[job ${jobId}] Completed successfully (${results.length} outputs)`);
+  } catch (err) {
+    console.error(`[job ${jobId}] Failed:`, err);
+    await reportProgress(callbackUrl, callbackKey, jobId, "failed", 0, {
+      error_message: err.message || String(err),
+    });
   } finally {
-    // Cleanup temp directory
+    // Clean up temp directory
     try {
-      const { rm } = await import("fs/promises");
-      await rm(jobDir, { recursive: true, force: true });
+      await fs.rm(jobDir, { recursive: true, force: true });
+      console.log(`[job ${jobId}] Cleaned up ${jobDir}`);
     } catch (cleanupErr) {
-      console.warn(`[job:${jobId}] Cleanup warning:`, cleanupErr.message);
+      console.warn(`[job ${jobId}] Cleanup warning:`, cleanupErr.message);
     }
   }
 }
 
-// ──── Callback helper ───────────────────────────────────────────────────────────
-async function reportCallback(payload, status, progress, errorMessage, results) {
-  const callbackUrl = payload.callback?.url;
+// ─── Helpers ───────────────────────────────────────────────────────
+
+/**
+ * Report job progress via callback URL.
+ */
+async function reportProgress(callbackUrl, callbackKey, jobId, status, progress, extra = {}) {
   if (!callbackUrl) return;
 
-  const internalKey = process.env.BRANDRR_INTERNAL_KEY;
-  const body = {
-    job_id: payload.job_id,
-    status,
-    progress: progress || 0,
-  };
-
-  if (errorMessage) body.error_message = errorMessage;
-  if (results) body.results = results;
-
   try {
-    const resp = await fetch(callbackUrl, {
+    const body = {
+      job_id: jobId,
+      status,
+      progress,
+      ...extra,
+    };
+
+    await fetch(callbackUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(internalKey ? { Authorization: `Bearer ${internalKey}` } : {}),
+        Authorization: `Bearer ${callbackKey}`,
       },
       body: JSON.stringify(body),
     });
-
-    if (!resp.ok) {
-      console.warn(`[callback] ${status} response: ${resp.status}`);
-    }
   } catch (err) {
-    console.warn(`[callback] Failed to report ${status}:`, err.message);
+    console.warn(`[job ${jobId}] Callback failed (${status}):`, err.message);
   }
 }
 
-// ──── Helpers ───────────────────────────────────────────────────────────────────
-function getOutputExtension(jobType, inputMime) {
-  if (jobType === "video_brand") return ".mp4";
-  if (jobType === "pdf_brand") return ".pdf";
-  // image
-  if (inputMime?.includes("png")) return ".png";
-  return ".jpg";
+/**
+ * Get a file extension for a MIME type.
+ */
+function getExtForMime(mime) {
+  const map = {
+    "video/mp4": ".mp4",
+    "video/quicktime": ".mov",
+    "video/webm": ".webm",
+    "video/x-msvideo": ".avi",
+    "application/pdf": ".pdf",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+  };
+  return map[mime] || ".bin";
 }
 
-function getOutputMimeType(jobType, inputMime) {
-  if (jobType === "video_brand") return "video/mp4";
-  if (jobType === "pdf_brand") return "application/pdf";
-  if (inputMime?.includes("png")) return "image/png";
-  return "image/jpeg";
-}
-
-// ──── Start server ──────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 10000;
+// ─── Start Server ──────────────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Brandrr worker listening on port ${PORT}`);
 });
