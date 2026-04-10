@@ -8,8 +8,8 @@ import { requireWorkerAuth } from "./auth.js";
 import { run, ensureDir, downloadToFile } from "./utils.js";
 import { testS3 } from "./s3.js";
 import { probeFile } from "./probe.js";
-import { brandImage } from "./image.js";
-import { brandPdf } from "./pdf.js";
+import { brandImage } from "./processors/image.js";
+import { brandPdf } from "./processors/pdf.js";
 import { brandVideo } from "./processors/video.js";
 import { uploadOutput } from "./upload.js";
 
