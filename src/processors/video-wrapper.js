@@ -321,16 +321,14 @@ function buildWrapperOverlayFilters({
           colors.primary || "#111111",
           boldFontPath, sourceHeight
         ),
-        apply: (pngPath) => {
+        apply: (pngPath, curLabel, curIdx) => {
           inputs.push("-loop", "1", "-i", pngPath);
-          // Scale the rotated text to fit the side panel, maintaining aspect ratio
-          filters.push(`[${inputIndex}:v]scale=${sidePanelW}:${sourceHeight}:force_original_aspect_ratio=decrease,format=rgba[sp_txt]`);
+          filters.push(`[${curIdx}:v]scale=${sidePanelW}:${sourceHeight}:force_original_aspect_ratio=decrease,format=rgba[sp_txt]`);
           const txtX = `${panelX}+(${sidePanelW}-overlay_w)/2`;
           const txtY = `${panelY}+(${sourceHeight}-overlay_h)/2`;
-          filters.push(`${lastLabel}[sp_txt]overlay=${withStaticOverlayOptions(`x=${txtX}:y=${txtY}`)}[v_wrap_sps]`);
-          lastLabel = "[v_wrap_sps]";
-          inputIndex++;
+          filters.push(`${curLabel}[sp_txt]overlay=${withStaticOverlayOptions(`x=${txtX}:y=${txtY}`)}[v_wrap_sps]`);
           cleanupPaths.push(pngPath);
+          return { lastLabel: "[v_wrap_sps]", inputIndex: curIdx + 1 };
         },
       });
     }
@@ -366,13 +364,12 @@ function buildWrapperOverlayFilters({
         colors.primary || "#111111",
         badgeText, boldFontPath, badgeFontSize
       ),
-      apply: (pngPath) => {
+      apply: (pngPath, curLabel, curIdx) => {
         inputs.push("-loop", "1", "-i", pngPath);
-        filters.push(`[${inputIndex}:v]format=rgba[badge_img]`);
-        filters.push(`${lastLabel}[badge_img]overlay=${withStaticOverlayOptions(`x=${badgeX}:y=${badgeY}`)}[v_wrap_bdg]`);
-        lastLabel = "[v_wrap_bdg]";
-        inputIndex++;
+        filters.push(`[${curIdx}:v]format=rgba[badge_img]`);
+        filters.push(`${curLabel}[badge_img]overlay=${withStaticOverlayOptions(`x=${badgeX}:y=${badgeY}`)}[v_wrap_bdg]`);
         cleanupPaths.push(pngPath);
+        return { lastLabel: "[v_wrap_bdg]", inputIndex: curIdx + 1 };
       },
     });
   }
@@ -482,24 +479,24 @@ export async function brandVideoWrapper({
   });
 
   // Execute pre-steps (generate PNGs for badge circle, vertical text, etc.)
+  let curLabel = wrapResult.lastLabel;
+  let curIdx = wrapResult.inputIndex;
   if (wrapResult.preSteps && wrapResult.preSteps.length > 0) {
     for (const step of wrapResult.preSteps) {
       console.log(`[video-wrapper.js] Running pre-step: ${step.type}`);
       const pngPath = await step.generate();
       if (pngPath) {
-        // Update lastLabel/inputIndex via the closure
-        lastLabel = wrapResult.lastLabel;
-        step.apply(pngPath);
-        wrapResult.lastLabel = lastLabel;
-        wrapResult.inputIndex = inputIndex;
+        const result = step.apply(pngPath, curLabel, curIdx);
+        curLabel = result.lastLabel;
+        curIdx = result.inputIndex;
       } else {
         console.warn(`[video-wrapper.js] Pre-step ${step.type} failed to generate PNG, skipping`);
       }
     }
   }
 
-  lastLabel = wrapResult.lastLabel;
-  inputIndex = wrapResult.inputIndex;
+  lastLabel = curLabel;
+  inputIndex = curIdx;
 
   if (filters.length > 0) {
     // Normalize timestamps
