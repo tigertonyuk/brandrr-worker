@@ -1419,7 +1419,7 @@ export async function brandVideo({
     const totalTextLen = (tagline || "").length +
       footerIcons.reduce((sum, e) => sum + e.label.length + 3, 0);
     const fontSize = totalTextLen > 100 ? 10 : totalTextLen > 60 ? 12 : 14;
-    const charWidth = Math.round(fontSize * 0.6);
+    const charWidth = Math.round(fontSize * 0.72);
     const separatorWidth = Math.round(charWidth * 5);
 
     const segments = [];
