@@ -424,6 +424,10 @@ function getOverlayPosition(position, padding = 20) {
   }
 }
 
+function withStaticOverlayOptions(positionExpr) {
+  return `${positionExpr}:eof_action=pass:repeatlast=1:shortest=1`;
+}
+
 function hexToFFmpegColor(hex) {
   if (!hex) return "0x000000";
   const clean = hex.replace("#", "");
@@ -942,7 +946,7 @@ async function createEndCardSegment({
   if (logoPath) {
     inputs.push("-loop", "1", "-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${logoTargetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[ec_logo]`);
-    filters.push(`${lastLabel}[ec_logo]overlay=(W-w)/2:${logoY}[v_ec_logo]`);
+    filters.push(`${lastLabel}[ec_logo]overlay=${withStaticOverlayOptions(`(W-w)/2:${logoY}`)}[v_ec_logo]`);
     lastLabel = "[v_ec_logo]";
     inputIndex++;
   }
@@ -1335,7 +1339,7 @@ export async function brandVideo({
   if (hasLogo && !eventCountdownWillHandleLogo && !deferLogo) {
     inputs.push("-loop", "1", "-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo]`);
-    filters.push(`${lastLabel}[logo]overlay=${overlayPos}[v_logo]`);
+    filters.push(`${lastLabel}[logo]overlay=${withStaticOverlayOptions(overlayPos)}[v_logo]`);
     lastLabel = "[v_logo]";
     inputIndex++;
   }
@@ -1359,7 +1363,7 @@ export async function brandVideo({
       const sLabel = `stk_${i}`;
       filters.push(`[${inputIndex}:v]format=rgba[${sLabel}]`);
       const outLabel = `v_stk_${i}`;
-      filters.push(`${lastLabel}[${sLabel}]overlay=x=W-w-${stickerPadding}:y=${stickerYOffset}[${outLabel}]`);
+      filters.push(`${lastLabel}[${sLabel}]overlay=${withStaticOverlayOptions(`x=W-w-${stickerPadding}:y=${stickerYOffset}`)}[${outLabel}]`);
       lastLabel = `[${outLabel}]`;
       inputIndex++;
       stickerYOffset += sticker.height + stickerGap;
@@ -1400,7 +1404,7 @@ export async function brandVideo({
   if (deferLogo) {
     inputs.push("-loop", "1", "-i", logoPath);
     filters.push(`[${inputIndex}:v]scale=-1:${targetHeight},format=rgba,colorchannelmixer=aa=${logoOpacity}[logo_def]`);
-    filters.push(`${lastLabel}[logo_def]overlay=${overlayPos}[v_logo_def]`);
+    filters.push(`${lastLabel}[logo_def]overlay=${withStaticOverlayOptions(overlayPos)}[v_logo_def]`);
     lastLabel = "[v_logo_def]";
     inputIndex++;
   }
@@ -1463,7 +1467,7 @@ export async function brandVideo({
         const iconLabel = `icon_${seg.key}`;
         filters.push(`[${inputIndex}:v]scale=${iconSize}:${iconSize},format=rgba[${iconLabel}]`);
         const outLabel = `v_fi_${segIdx}`;
-        filters.push(`${lastLabel}[${iconLabel}]overlay=x='${startXExpr}+${xOffset}':y=H-${footerHeight}+${iconYCenter}[${outLabel}]`);
+        filters.push(`${lastLabel}[${iconLabel}]overlay=${withStaticOverlayOptions(`x='${startXExpr}+${xOffset}':y=H-${footerHeight}+${iconYCenter}`)}[${outLabel}]`);
         lastLabel = `[${outLabel}]`;
         inputIndex++;
         xOffset += iconSize + iconGap;
