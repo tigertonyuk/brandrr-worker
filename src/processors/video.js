@@ -133,6 +133,18 @@ async function resolveFont(slug, bold = false) {
 
 // ─── Emoji support via Twemoji ─────────────────────────────────────────────
 const TWEMOJI_BASE = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72";
+const TWEMOJI_FETCH_TIMEOUT_MS = 5000;
+
+async function fetchWithTimeout(url, timeoutMs = TWEMOJI_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 async function getEmojiDataUri(emoji) {
   if (!emoji) return null;
@@ -149,13 +161,16 @@ async function getEmojiDataUri(emoji) {
     for (const cp of [noFe0fCodepoints, rawCodepoints]) {
       const url = `${TWEMOJI_BASE}/${cp}.png`;
       try {
-        const res = await fetch(url);
+        const res = await fetchWithTimeout(url);
         if (res.ok) {
           const buf = Buffer.from(await res.arrayBuffer());
           console.log(`[video.js] Fetched Twemoji for "${emoji}" → ${cp}.png`);
           return `data:image/png;base64,${buf.toString("base64")}`;
         }
-      } catch { /* try next variant */ }
+      } catch (error) {
+        const reason = error?.name === "AbortError" ? `timeout after ${TWEMOJI_FETCH_TIMEOUT_MS}ms` : error?.message;
+        console.warn(`[video.js] Twemoji fetch failed for "${emoji}" (${cp}.png): ${reason || "unknown error"}`);
+      }
     }
 
     console.warn(`[video.js] Twemoji not found for "${emoji}"`);
