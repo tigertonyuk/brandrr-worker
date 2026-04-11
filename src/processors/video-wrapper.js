@@ -144,6 +144,10 @@ function escapeDrawText(text) {
     .replace(/;/g, "\\;");
 }
 
+function withStaticOverlayOptions(positionExpr) {
+  return `${positionExpr}:eof_action=pass:repeatlast=1:shortest=1`;
+}
+
 function probeVideoInfo(inputPath) {
   try {
     const raw = execFileSync("ffprobe", [
@@ -290,7 +294,7 @@ function buildWrapperOverlayFilters({
     filters.push(`[${inputIndex}:v]scale=-1:${lh},format=rgba,colorchannelmixer=aa=${logoOpacity || 0.9}[wrap_logo]`);
     const logoX = imgX + 10;
     const logoY = imgY + 10;
-    filters.push(`${lastLabel}[wrap_logo]overlay=x=${logoX}:y=${logoY}[v_wrap_logo]`);
+    filters.push(`${lastLabel}[wrap_logo]overlay=${withStaticOverlayOptions(`x=${logoX}:y=${logoY}`)}[v_wrap_logo]`);
     lastLabel = "[v_wrap_logo]";
     inputIndex++;
   }
