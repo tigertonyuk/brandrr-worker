@@ -1079,7 +1079,7 @@ async function handleConcatTemplate({
   inputPath, logoPath, outputPath, jobDir,
   templateFamilyId, mergedCustomFields,
   logoSize, logoPosition, logoOpacity, logoTargetHeightPx, logoEnabled,
-  brandName, primaryColor, tagline, contact, social, elements,
+  brandName, primaryColor, secondaryColor, tagline, contact, social, elements,
   fontFamily, stickers, stickerMeta,
   copyrightText,
 }) {
@@ -1087,7 +1087,7 @@ async function handleConcatTemplate({
   const info = probeVideoInfo(inputPath);
   const { width, height, fps } = info;
   const bgFFmpeg = hexToFFmpegColor(primaryColor || "#000000");
-  const fontColorHex = "0xFFFFFF";
+  const fontColorHex = hexToFFmpegColor(secondaryColor || "#FFFFFF");
   const targetHeight = logoTargetHeightPx || LOGO_SIZE_MAP[logoSize] || LOGO_SIZE_MAP.medium;
 
   const regularFont = await resolveFont(fontFamily, false);
@@ -1177,7 +1177,7 @@ export async function brandVideo({
   inputPath, logoPath, outputPath, jobDir,
   logoSize = "medium", logoPosition = "bottom-right",
   logoOpacity = 0.9, logoTargetHeightPx, logoEnabled = true,
-  brandName, primaryColor, tagline, contact, social, elements,
+  brandName, primaryColor, secondaryColor, tagline, contact, social, elements,
   fontFamily, stickers, stickerMeta,
   templateFamilyId,
   templateCustomFields, template_custom_fields,
@@ -1228,7 +1228,7 @@ export async function brandVideo({
       inputPath, logoPath, outputPath, jobDir,
       templateFamilyId, mergedCustomFields,
       logoSize, logoPosition, logoOpacity, logoTargetHeightPx, logoEnabled,
-      brandName, primaryColor, tagline, contact, social, elements,
+      brandName, primaryColor, secondaryColor, tagline, contact, social, elements,
       fontFamily, stickers, stickerMeta,
       copyrightText,
     });
@@ -1239,7 +1239,7 @@ export async function brandVideo({
   const targetHeight = logoTargetHeightPx || LOGO_SIZE_MAP[logoSize] || LOGO_SIZE_MAP.medium;
   const overlayPos = getOverlayPosition(logoPosition);
   const bgColor = primaryColor ? hexToFFmpegColor(primaryColor) : "0x000000";
-  const fontColor = "0xFFFFFF";
+  const fontColor = hexToFFmpegColor(secondaryColor || "#FFFFFF");
   const tempDir = jobDir || path.dirname(outputPath);
 
   const iconSize = 18;
