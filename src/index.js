@@ -202,6 +202,7 @@ async function processJob(payload) {
               logoEnabled: brand.logo_enabled ?? true,
               brandName: brand.name,
               primaryColor: brand.primary_color,
+              secondaryColor: brand.secondary_color,
               tagline: brand.tagline,
               contact: brand.contact,
               social: brand.social,
